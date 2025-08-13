@@ -12,18 +12,18 @@ enum HabitCategory {
 }
 
 enum HabitFrequencyType {
-  daily,           // Every day
-  everyNDays,      // Every N days
-  timesPerWeek,    // X times per week
-  timesPerMonth,   // X times per month
-  timesInPeriod,   // X times in Y days
+  daily, // Every day
+  everyNDays, // Every N days
+  timesPerWeek, // X times per week
+  timesPerMonth, // X times per month
+  timesInPeriod, // X times in Y days
 }
 
 class HabitFrequency {
   final HabitFrequencyType type;
-  final int target;               // Number (3, 10, etc.)
-  final int? periodDays;          // For "times in period" (14 days)
-  
+  final int target; // Number (3, 10, etc.)
+  final int? periodDays; // For "times in period" (14 days)
+
   const HabitFrequency({
     required this.type,
     required this.target,
@@ -53,16 +53,20 @@ class HabitFrequency {
 
   // Create preset frequency options
   static List<HabitFrequency> get presets => [
-    const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
-    const HabitFrequency(type: HabitFrequencyType.everyNDays, target: 2),
-    const HabitFrequency(type: HabitFrequencyType.everyNDays, target: 3),
-    const HabitFrequency(type: HabitFrequencyType.timesPerWeek, target: 3),
-    const HabitFrequency(type: HabitFrequencyType.timesPerWeek, target: 5),
-    const HabitFrequency(type: HabitFrequencyType.timesPerMonth, target: 10),
-    const HabitFrequency(type: HabitFrequencyType.timesPerMonth, target: 15),
-    const HabitFrequency(type: HabitFrequencyType.timesInPeriod, target: 3, periodDays: 7),
-    const HabitFrequency(type: HabitFrequencyType.timesInPeriod, target: 5, periodDays: 14),
-  ];
+        const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
+        const HabitFrequency(type: HabitFrequencyType.everyNDays, target: 2),
+        const HabitFrequency(type: HabitFrequencyType.everyNDays, target: 3),
+        const HabitFrequency(type: HabitFrequencyType.timesPerWeek, target: 3),
+        const HabitFrequency(type: HabitFrequencyType.timesPerWeek, target: 5),
+        const HabitFrequency(
+            type: HabitFrequencyType.timesPerMonth, target: 10),
+        const HabitFrequency(
+            type: HabitFrequencyType.timesPerMonth, target: 15),
+        const HabitFrequency(
+            type: HabitFrequencyType.timesInPeriod, target: 3, periodDays: 7),
+        const HabitFrequency(
+            type: HabitFrequencyType.timesInPeriod, target: 5, periodDays: 14),
+      ];
 }
 
 class Habit extends Equatable {

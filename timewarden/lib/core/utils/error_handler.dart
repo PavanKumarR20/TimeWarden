@@ -5,9 +5,9 @@ class ErrorHandler {
   /// Handle and log Firebase authentication errors
   static String handleAuthError(dynamic error) {
     LogService.auth('Authentication error occurred', error: error);
-    
+
     final errorMessage = error.toString().toLowerCase();
-    
+
     if (errorMessage.contains('user-not-found')) {
       return 'No user found with this email address.';
     } else if (errorMessage.contains('wrong-password')) {
@@ -32,9 +32,9 @@ class ErrorHandler {
   /// Handle and log Firestore database errors
   static String handleDatabaseError(dynamic error) {
     LogService.firebase('Database error occurred', error: error);
-    
+
     final errorMessage = error.toString().toLowerCase();
-    
+
     if (errorMessage.contains('permission-denied')) {
       return 'Permission denied. Please check your account access.';
     } else if (errorMessage.contains('unavailable')) {
@@ -54,8 +54,10 @@ class ErrorHandler {
 
   /// Handle general application errors
   static String handleGeneralError(dynamic error, {String? context}) {
-    LogService.error('General error occurred${context != null ? ' in $context' : ''}', error: error);
-    
+    LogService.error(
+        'General error occurred${context != null ? ' in $context' : ''}',
+        error: error);
+
     if (error.toString().contains('SocketException')) {
       return 'No internet connection. Please check your network.';
     } else if (error.toString().contains('TimeoutException')) {
@@ -68,13 +70,15 @@ class ErrorHandler {
   }
 
   /// Log and return a user-friendly error message
-  static String processError(dynamic error, {String? context, String? fallbackMessage}) {
+  static String processError(dynamic error,
+      {String? context, String? fallbackMessage}) {
     // Try to categorize the error
     final errorString = error.toString();
-    
+
     if (errorString.contains('firebase_auth')) {
       return handleAuthError(error);
-    } else if (errorString.contains('cloud_firestore') || errorString.contains('firestore')) {
+    } else if (errorString.contains('cloud_firestore') ||
+        errorString.contains('firestore')) {
       return handleDatabaseError(error);
     } else {
       return handleGeneralError(error, context: context);

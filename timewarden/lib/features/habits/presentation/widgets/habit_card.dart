@@ -17,7 +17,8 @@ class HabitCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = habit.isCompletedToday;
     final habitColor = habit.color != null
-        ? Color(int.parse(habit.color!.replaceAll('#', '').substring(0, 8), radix: 16))
+        ? Color(int.parse(habit.color!.replaceAll('#', '').substring(0, 8),
+            radix: 16))
         : Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -119,7 +120,9 @@ class HabitCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -128,7 +131,9 @@ class HabitCard extends StatelessWidget {
                                 .textTheme
                                 .labelSmall
                                 ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
                                   fontWeight: FontWeight.w400,
                                 ),
                           ),

@@ -260,7 +260,8 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             Wrap(
               spacing: 8,
               children: _availableColors.map((color) {
-                final colorValue = '#${color.value.toRadixString(16).padLeft(8, '0')}';
+                final colorValue =
+                    '#${color.value.toRadixString(16).padLeft(8, '0')}';
                 final isSelected = _selectedColor == colorValue;
                 return GestureDetector(
                   onTap: () {

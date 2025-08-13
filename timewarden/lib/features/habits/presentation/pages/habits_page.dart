@@ -79,8 +79,9 @@ class _HabitsViewState extends State<HabitsView> {
   }
 
   Widget _buildHabitsView(BuildContext context, List<Habit> allHabits) {
-    final filteredHabits = HabitFilterService.filterHabits(allHabits, _currentFilter);
-    
+    final filteredHabits =
+        HabitFilterService.filterHabits(allHabits, _currentFilter);
+
     return Column(
       children: [
         // Filter tabs
@@ -101,7 +102,9 @@ class _HabitsViewState extends State<HabitsView> {
                 child: _buildFilterTab(
                   'Pending',
                   HabitFilter.pending,
-                  HabitFilterService.filterHabits(allHabits, HabitFilter.pending).length,
+                  HabitFilterService.filterHabits(
+                          allHabits, HabitFilter.pending)
+                      .length,
                 ),
               ),
               const SizedBox(width: 8),
@@ -109,13 +112,15 @@ class _HabitsViewState extends State<HabitsView> {
                 child: _buildFilterTab(
                   'Completed',
                   HabitFilter.completed,
-                  HabitFilterService.filterHabits(allHabits, HabitFilter.completed).length,
+                  HabitFilterService.filterHabits(
+                          allHabits, HabitFilter.completed)
+                      .length,
                 ),
               ),
             ],
           ),
         ),
-        
+
         // Habits list
         Expanded(
           child: _buildHabitsList(context, filteredHabits),
@@ -126,7 +131,7 @@ class _HabitsViewState extends State<HabitsView> {
 
   Widget _buildFilterTab(String title, HabitFilter filter, int count) {
     final isSelected = _currentFilter == filter;
-    
+
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -136,7 +141,7 @@ class _HabitsViewState extends State<HabitsView> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? Theme.of(context).colorScheme.primaryContainer
               : Theme.of(context).colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(20),
@@ -232,7 +237,7 @@ class _HabitsViewState extends State<HabitsView> {
   void _navigateToAddHabit(BuildContext context) {
     // Get the BLoC reference before navigating
     final habitsBloc = context.read<HabitsBloc>();
-    
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => BlocProvider.value(

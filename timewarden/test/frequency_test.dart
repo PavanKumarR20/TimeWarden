@@ -57,7 +57,8 @@ void main() {
         name: 'Completed Habit',
         description: null,
         category: HabitCategory.health,
-        frequency: const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
+        frequency:
+            const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
         createdAt: DateTime.now(),
         isActive: true,
         currentStreak: 5,
@@ -69,7 +70,8 @@ void main() {
         name: 'Pending Habit',
         description: null,
         category: HabitCategory.productivity,
-        frequency: const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
+        frequency:
+            const HabitFrequency(type: HabitFrequencyType.daily, target: 1),
         createdAt: DateTime.now(),
         isActive: true,
         currentStreak: 0,
@@ -84,13 +86,15 @@ void main() {
     });
 
     test('pending filter should return only pending habits', () {
-      final filtered = HabitFilterService.filterHabits(habits, HabitFilter.pending);
+      final filtered =
+          HabitFilterService.filterHabits(habits, HabitFilter.pending);
       expect(filtered.length, equals(1));
       expect(filtered.first.name, equals('Pending Habit'));
     });
 
     test('completed filter should return only completed habits', () {
-      final filtered = HabitFilterService.filterHabits(habits, HabitFilter.completed);
+      final filtered =
+          HabitFilterService.filterHabits(habits, HabitFilter.completed);
       expect(filtered.length, equals(1));
       expect(filtered.first.name, equals('Completed Habit'));
     });

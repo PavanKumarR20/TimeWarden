@@ -64,40 +64,40 @@ class _FrequencySelectorState extends State<FrequencySelector> {
               ),
         ),
         const SizedBox(height: 16),
-        
+
         // Preset frequency options
         _buildFrequencyOption(
           'Every day',
           HabitFrequencyType.daily,
           target: 1,
         ),
-        
+
         _buildFrequencyOption(
           'Every 2 days',
           HabitFrequencyType.everyNDays,
           target: 2,
         ),
-        
+
         _buildFrequencyOption(
           'Every 3 days',
           HabitFrequencyType.everyNDays,
           target: 3,
         ),
-        
+
         // Custom every N days option
         _buildCustomFrequencyOption(
           'Every',
           'days',
           HabitFrequencyType.everyNDays,
         ),
-        
+
         // Times per week option
         _buildCustomFrequencyOption(
           '',
           'times per week',
           HabitFrequencyType.timesPerWeek,
         ),
-        
+
         // Times per month option
         _buildCustomFrequencyOption(
           '',
@@ -113,7 +113,7 @@ class _FrequencySelectorState extends State<FrequencySelector> {
     HabitFrequencyType type, {
     int? target,
   }) {
-    final isSelected = _selectedFrequency.type == type && 
+    final isSelected = _selectedFrequency.type == type &&
         (target == null || _selectedFrequency.target == target);
 
     return Card(
@@ -184,7 +184,7 @@ class _FrequencySelectorState extends State<FrequencySelector> {
                 child: Text(
                   suffix,
                   style: TextStyle(
-                    color: isSelected 
+                    color: isSelected
                         ? Theme.of(context).textTheme.bodyMedium?.color
                         : Theme.of(context).disabledColor,
                   ),

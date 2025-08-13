@@ -2,8 +2,8 @@ import '../entities/habit.dart';
 
 enum HabitFilter {
   all,
-  pending,      // Not completed today
-  completed,    // Completed today
+  pending, // Not completed today
+  completed, // Completed today
 }
 
 extension HabitFilterExtension on HabitFilter {
@@ -20,13 +20,13 @@ extension HabitFilterExtension on HabitFilter {
 
   bool shouldShow(Habit habit, {DateTime? forDate}) {
     final date = forDate ?? DateTime.now();
-    
+
     // Don't show inactive habits
     if (!habit.isActive) return false;
-    
+
     // Don't show habits that aren't required on this date
     if (!habit.isRequiredOnDate(date)) return false;
-    
+
     switch (this) {
       case HabitFilter.all:
         return true;
@@ -45,7 +45,9 @@ class HabitFilterService {
     DateTime? forDate,
   }) {
     final date = forDate ?? DateTime.now();
-    return habits.where((habit) => filter.shouldShow(habit, forDate: date)).toList();
+    return habits
+        .where((habit) => filter.shouldShow(habit, forDate: date))
+        .toList();
   }
 
   static List<Habit> getHabitsForWeek(
@@ -55,7 +57,7 @@ class HabitFilterService {
     // Get habits that should appear at least once during the week
     return habits.where((habit) {
       if (!habit.isActive) return false;
-      
+
       // Check if habit should show on any day of the week
       for (int i = 0; i < 7; i++) {
         final date = startOfWeek.add(Duration(days: i));
