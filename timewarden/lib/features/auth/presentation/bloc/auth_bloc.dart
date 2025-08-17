@@ -41,6 +41,8 @@ class AuthSignUpRequested extends AuthEvent {
   List<Object> get props => [email, password];
 }
 
+class AuthGoogleSignInRequested extends AuthEvent {}
+
 class AuthSignOutRequested extends AuthEvent {}
 
 class AuthPasswordResetRequested extends AuthEvent {
@@ -101,6 +103,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthSignInRequested>(_onAuthSignInRequested);
     on<AuthSignUpRequested>(_onAuthSignUpRequested);
+    on<AuthGoogleSignInRequested>(_onAuthGoogleSignInRequested);
     on<AuthSignOutRequested>(_onAuthSignOutRequested);
     on<AuthPasswordResetRequested>(_onAuthPasswordResetRequested);
   }
@@ -148,6 +151,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthAuthenticated(user));
     } catch (e) {
       LogService.auth('Sign up error', error: e);
+      emit(AuthError(_getErrorMessage(e)));
+    }
+  }
+
+  Future<void> _onAuthGoogleSignInRequested(
+    AuthGoogleSignInRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+    try {
+      LogService.auth('Attempting to sign in with Google');
+      final user = await _authRepository.signInWithGoogle();
+      LogService.auth('Google sign in successful: ${user.id}');
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      LogService.auth('Google sign in error', error: e);
       emit(AuthError(_getErrorMessage(e)));
     }
   }

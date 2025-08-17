@@ -7,7 +7,6 @@ import '../../../../core/widgets/animations.dart';
 import '../bloc/pomodoro_bloc.dart';
 import '../bloc/pomodoro_event.dart';
 import '../bloc/pomodoro_state.dart';
-import '../widgets/circular_progress_painter.dart';
 import 'pomodoro_settings_page.dart';
 import 'pomodoro_statistics_page.dart';
 

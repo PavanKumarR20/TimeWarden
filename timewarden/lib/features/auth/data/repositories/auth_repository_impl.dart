@@ -1,9 +1,11 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final FirebaseService _firebaseService;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   AuthRepositoryImpl(this._firebaseService);
 
@@ -55,8 +57,39 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AppUser> signInWithGoogle() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        throw Exception('Google sign in was cancelled');
+      }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // Create a new credential
+      final credential = await _firebaseService.signInWithGoogle(
+        accessToken: googleAuth.accessToken!,
+        idToken: googleAuth.idToken!,
+      );
+
+      if (credential?.user == null) {
+        throw Exception('Google sign in failed');
+      }
+
+      return AppUser.fromFirebaseUser(credential!.user!);
+    } catch (e) {
+      throw Exception('Google sign in failed: $e');
+    }
+  }
+
+  @override
   Future<void> signOut() async {
     await _firebaseService.signOut();
+    await _googleSignIn.signOut(); // Also sign out from Google
   }
 
   @override

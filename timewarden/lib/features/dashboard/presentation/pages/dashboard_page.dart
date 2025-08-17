@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
+import '../../../habits/domain/entities/habit.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
@@ -12,6 +13,7 @@ import '../../../journal/presentation/bloc/journal_event.dart';
 import '../../../journal/presentation/bloc/journal_state.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../secure_journal_page.dart';
+import '../../../../core/services/quotes_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -137,7 +139,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome card
+          // Daily Quote card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -147,23 +149,20 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   Row(
                     children: [
                       Icon(
-                        Icons.wb_sunny,
+                        Icons.format_quote,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Good ${_getGreeting()}!',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        'Quote of the Day',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ready to make today productive?',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                  ),
+                  const SizedBox(height: 12),
+                  _buildDailyQuote(),
                 ],
               ),
             ),
@@ -191,11 +190,10 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                           date.day == today.day);
                     }).length;
 
-                    // Calculate current streak (simplified)
+                    // Calculate daily completion streak - only counts days where ALL habits were completed
                     if (habitsState.habits.isNotEmpty) {
-                      currentStreak = habitsState.habits
-                          .map((habit) => habit.currentStreak)
-                          .reduce((a, b) => a > b ? a : b);
+                      currentStreak =
+                          _calculateDailyCompletionStreak(habitsState.habits);
                     }
                   }
 
@@ -233,7 +231,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                           Expanded(
                             child: _buildStatCard(
                               context,
-                              'Current Streak',
+                              'Days of Discipline',
                               '$currentStreak days',
                               Icons.local_fire_department,
                               Colors.red,
@@ -313,31 +311,86 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   );
                 }
 
-                // Show today's habits
+                // Show today's incomplete habits only
                 final today = DateTime.now();
-                return Column(
-                  children: state.habits.take(3).map((habit) {
-                    final isCompletedToday = habit.completedDates.any((date) =>
-                        date.year == today.year &&
-                        date.month == today.month &&
-                        date.day == today.day);
+                final incompleteHabits = state.habits
+                    .where((habit) {
+                      final isCompletedToday = habit.completedDates.any(
+                          (date) =>
+                              date.year == today.year &&
+                              date.month == today.month &&
+                              date.day == today.day);
+                      return !isCompletedToday; // Only show incomplete habits
+                    })
+                    .take(3)
+                    .toList();
 
+                if (incompleteHabits.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.celebration,
+                            size: 64,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'All habits completed! 🎉',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Great job staying disciplined!',
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: incompleteHabits.map((habit) {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         leading: Icon(
-                          isCompletedToday
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                          color: isCompletedToday ? Colors.green : null,
+                          Icons.circle_outlined,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         title: Text(habit.name),
                         subtitle: Text(habit.description?.isNotEmpty == true
                             ? habit.description!
-                            : 'No description'),
-                        onTap: () {
-                          // Navigate to habits tab
-                          widget.onNavigateToTab(1);
+                            : 'Tap to complete'),
+                        onTap: () async {
+                          // Complete the habit
+                          context.read<HabitsBloc>().add(HabitCompletionToggled(
+                              habitId: habit.id, date: today));
+
+                          // Show feedback
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${habit.name} completed! 🎉'),
+                              duration: const Duration(seconds: 2),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
                         },
                       ),
                     );
@@ -504,10 +557,99 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
     );
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'morning';
-    if (hour < 17) return 'afternoon';
-    return 'evening';
+  Widget _buildDailyQuote() {
+    final quote = QuotesService.getQuoteOfTheDay();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color:
+                Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '"${quote.text}"',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontStyle: FontStyle.italic,
+                      height: 1.4,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '— ${quote.author}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Let this inspire your day!',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+
+  /// Calculates total number of days where all habits were completed
+  /// These are "Days of Discipline" - when commitment met action
+  /// A testament to self-control and consistency in personal growth
+  int _calculateDailyCompletionStreak(List<Habit> habits) {
+    if (habits.isEmpty) return 0;
+
+    int perfectDays = 0;
+
+    // Get all unique dates where any habit was completed
+    Set<DateTime> allCompletionDates = {};
+    for (final habit in habits) {
+      for (final date in habit.completedDates) {
+        final dateOnly = DateTime(date.year, date.month, date.day);
+        allCompletionDates.add(dateOnly);
+      }
+    }
+
+    // For each date, check if ALL habits were completed
+    for (final date in allCompletionDates) {
+      bool allHabitsCompletedOnDate = true;
+
+      for (final habit in habits) {
+        // Check if this habit was completed on this date
+        bool habitCompletedOnDate = habit.completedDates.any((completedDate) =>
+            completedDate.year == date.year &&
+            completedDate.month == date.month &&
+            completedDate.day == date.day);
+
+        if (!habitCompletedOnDate) {
+          allHabitsCompletedOnDate = false;
+          break;
+        }
+      }
+
+      if (allHabitsCompletedOnDate) {
+        perfectDays++;
+      }
+    }
+
+    return perfectDays;
   }
 }

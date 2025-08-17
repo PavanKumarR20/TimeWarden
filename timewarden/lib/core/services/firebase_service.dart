@@ -54,6 +54,26 @@ class FirebaseService {
     }
   }
 
+  // Sign in with Google
+  Future<UserCredential?> signInWithGoogle({
+    required String accessToken,
+    required String idToken,
+  }) async {
+    try {
+      // Create a credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: accessToken,
+        idToken: idToken,
+      );
+
+      // Sign in to Firebase with the credential
+      return await _auth.signInWithCredential(credential);
+    } catch (e) {
+      LogService.firebase('Error signing in with Google', error: e);
+      rethrow;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _auth.signOut();

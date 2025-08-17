@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/habit.dart';
 import '../bloc/habits_bloc.dart';
 import '../../../../core/widgets/animations.dart';
+import '../../../../core/services/haptic_service.dart';
 
 class HabitCard extends StatelessWidget {
   final Habit habit;
@@ -63,7 +64,10 @@ class HabitCard extends StatelessWidget {
                   final isCurrentlyCompleted = currentHabit.isCompletedToday;
 
                   return AnimatedScaleButton(
-                    onTap: onToggleCompletion,
+                    onTap: () {
+                      HapticService.buttonTap();
+                      onToggleCompletion?.call();
+                    },
                     child: Container(
                       width: 48,
                       height: 48,
@@ -165,7 +169,10 @@ class HabitCard extends StatelessWidget {
 
               // Quick action button
               IconButton(
-                onPressed: onToggleCompletion,
+                onPressed: () {
+                  HapticService.buttonTap();
+                  onToggleCompletion?.call();
+                },
                 icon: Icon(
                   isCompleted ? Icons.undo : Icons.check,
                   color: habitColor,

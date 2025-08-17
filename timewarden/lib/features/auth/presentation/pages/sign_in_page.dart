@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import 'sign_up_page.dart';
+import '../../../../core/services/haptic_service.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -125,7 +126,12 @@ class _SignInPageState extends State<SignInPage> {
                     return SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: state is AuthLoading ? null : _signIn,
+                        onPressed: state is AuthLoading
+                            ? null
+                            : () {
+                                HapticService.buttonTap();
+                                _signIn();
+                              },
                         child: state is AuthLoading
                             ? const SizedBox(
                                 height: 20,
@@ -134,6 +140,57 @@ class _SignInPageState extends State<SignInPage> {
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Text('Sign In'),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Divider
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'or',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Google Sign In button
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, state) {
+                    return SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: state is AuthLoading
+                            ? null
+                            : () {
+                                HapticService.buttonTap();
+                                context
+                                    .read<AuthBloc>()
+                                    .add(AuthGoogleSignInRequested());
+                              },
+                        icon: state is AuthLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.login, size: 20),
+                        label: Text(state is AuthLoading
+                            ? 'Signing in...'
+                            : 'Continue with Google'),
                       ),
                     );
                   },
