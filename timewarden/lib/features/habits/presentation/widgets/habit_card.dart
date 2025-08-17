@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/habit.dart';
+import '../bloc/habits_bloc.dart';
+import '../../../../core/widgets/animations.dart';
 
 class HabitCard extends StatelessWidget {
   final Habit habit;
@@ -16,10 +19,15 @@ class HabitCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isCompleted = habit.isCompletedToday;
-    final habitColor = habit.color != null
-        ? Color(int.parse(habit.color!.replaceAll('#', '').substring(0, 8),
-            radix: 16))
-        : Theme.of(context).colorScheme.primary;
+    Color habitColor;
+    try {
+      habitColor = habit.color != null
+          ? Color(int.parse(habit.color!.replaceAll('#', '').padLeft(8, 'FF'),
+              radix: 16))
+          : Theme.of(context).colorScheme.primary;
+    } catch (e) {
+      habitColor = Theme.of(context).colorScheme.primary;
+    }
 
     return Card(
       elevation: 2,
@@ -31,29 +39,57 @@ class HabitCard extends StatelessWidget {
           child: Row(
             children: [
               // Icon and completion status
-              GestureDetector(
-                onTap: onToggleCompletion,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color:
-                        isCompleted ? habitColor : habitColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(
-                            Icons.check,
-                            color: Colors.white,
-                            size: 24,
-                          )
-                        : Text(
-                            habit.icon ?? '✅',
-                            style: const TextStyle(fontSize: 20),
-                          ),
-                  ),
-                ),
+              BlocBuilder<HabitsBloc, HabitsState>(
+                buildWhen: (previous, current) {
+                  if (previous is HabitsLoaded && current is HabitsLoaded) {
+                    final prevHabit = previous.habits.firstWhere(
+                      (h) => h.id == habit.id,
+                      orElse: () => habit,
+                    );
+                    final currHabit = current.habits.firstWhere(
+                      (h) => h.id == habit.id,
+                      orElse: () => habit,
+                    );
+                    return prevHabit.isCompletedToday !=
+                        currHabit.isCompletedToday;
+                  }
+                  return false;
+                },
+                builder: (context, state) {
+                  final currentHabit = state is HabitsLoaded
+                      ? state.habits.firstWhere((h) => h.id == habit.id,
+                          orElse: () => habit)
+                      : habit;
+                  final isCurrentlyCompleted = currentHabit.isCompletedToday;
+
+                  return AnimatedScaleButton(
+                    onTap: onToggleCompletion,
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: isCurrentlyCompleted
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  key: ValueKey('completed'),
+                                  color: Colors.green.shade600,
+                                  size: 32,
+                                  weight: 800,
+                                )
+                              : Icon(
+                                  Icons.close_rounded,
+                                  key: ValueKey('incomplete'),
+                                  color: Colors.grey.shade600,
+                                  size: 32,
+                                  weight: 800,
+                                ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 16),
 
@@ -73,89 +109,52 @@ class HabitCard extends StatelessWidget {
                           ),
                     ),
                     if (habit.description != null &&
-                        habit.description!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          habit.description!,
+                        habit.description!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        habit.description!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.repeat,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          habit.frequency.displayText,
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
                                   ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        // Category chip
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: habitColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _getCategoryDisplayName(habit.category),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: habitColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Frequency chip
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            habit.frequency.displayText,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                          ),
                         ),
                         const Spacer(),
-                        // Streak info
                         if (habit.currentStreak > 0) ...[
-                          const Icon(
+                          Icon(
                             Icons.local_fire_department,
-                            size: 16,
+                            size: 14,
                             color: Colors.orange,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 2),
                           Text(
                             '${habit.currentStreak}',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.orange,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
                         ],
                       ],
@@ -164,41 +163,19 @@ class HabitCard extends StatelessWidget {
                 ),
               ),
 
-              // Completion toggle button
+              // Quick action button
               IconButton(
                 onPressed: onToggleCompletion,
                 icon: Icon(
-                  isCompleted ? Icons.check_circle : Icons.circle_outlined,
-                  color: isCompleted
-                      ? habitColor
-                      : Theme.of(context).colorScheme.outline,
+                  isCompleted ? Icons.undo : Icons.check,
+                  color: habitColor,
                 ),
+                tooltip: isCompleted ? 'Mark incomplete' : 'Mark complete',
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _getCategoryDisplayName(HabitCategory category) {
-    switch (category) {
-      case HabitCategory.health:
-        return 'Health';
-      case HabitCategory.learning:
-        return 'Learning';
-      case HabitCategory.productivity:
-        return 'Productivity';
-      case HabitCategory.fitness:
-        return 'Fitness';
-      case HabitCategory.mindfulness:
-        return 'Mindfulness';
-      case HabitCategory.social:
-        return 'Social';
-      case HabitCategory.creative:
-        return 'Creative';
-      case HabitCategory.other:
-        return 'Other';
-    }
   }
 }

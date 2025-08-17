@@ -75,4 +75,13 @@ class LogService {
       info('[FIREBASE] $message');
     }
   }
+
+  /// Log journal-related events
+  static void journal(String message, {Object? error}) {
+    if (error != null) {
+      LogService.error('[JOURNAL] $message', error: error);
+    } else {
+      info('[JOURNAL] $message');
+    }
+  }
 }

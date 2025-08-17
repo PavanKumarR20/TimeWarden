@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/entities/habit_filter.dart';
 import '../bloc/habits_bloc.dart';
 import '../widgets/habit_card.dart';
+import '../widgets/calendar_habits_view.dart';
+import '../../../../core/services/theme_service.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/widgets/animations.dart';
 import 'add_edit_habit_page.dart';
+import 'habit_detail_page.dart';
 
 class HabitsPage extends StatefulWidget {
   const HabitsPage({super.key});
@@ -38,10 +44,49 @@ class HabitsView extends StatefulWidget {
 
 class _HabitsViewState extends State<HabitsView> {
   HabitFilter _currentFilter = HabitFilter.all;
+  bool _isCalendarView = true; // Default to calendar view
+  bool _hideCompletedHabits = false; // Track hide completed setting
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Habits'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Theme.of(context).brightness == Brightness.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: () {
+              HapticService.buttonTap();
+              Provider.of<ThemeService>(context, listen: false).toggleTheme();
+            },
+            tooltip: 'Toggle Theme',
+          ),
+          AnimatedScaleButton(
+            onTap: () {
+              HapticService.buttonTap();
+              setState(() {
+                _isCalendarView = !_isCalendarView;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                  _isCalendarView ? Icons.view_list : Icons.calendar_view_week),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () {
+              HapticService.buttonTap();
+              _showOptionsMenu(context);
+            },
+          ),
+        ],
+      ),
       body: BlocConsumer<HabitsBloc, HabitsState>(
         listener: (context, state) {
           if (state is HabitsError) {
@@ -71,74 +116,123 @@ class _HabitsViewState extends State<HabitsView> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToAddHabit(context),
-        child: const Icon(Icons.add),
+      floatingActionButton: SlideInAnimation(
+        begin: const Offset(0, 1.0),
+        delay: const Duration(milliseconds: 400),
+        child: FloatingActionButton(
+          onPressed: () {
+            HapticService.buttonTap();
+            _navigateToAddHabit(context);
+          },
+          child: const Icon(Icons.add),
+        ),
       ),
     );
   }
 
   Widget _buildHabitsView(BuildContext context, List<Habit> allHabits) {
+    // Filter habits based on hide completed setting
+    List<Habit> displayHabits = allHabits;
+    if (_isCalendarView && _hideCompletedHabits) {
+      final today = DateTime.now();
+      displayHabits = allHabits.where((habit) {
+        // Check if habit is completed today
+        final isCompletedToday = habit.completedDates.any((date) =>
+            date.year == today.year &&
+            date.month == today.month &&
+            date.day == today.day);
+        return !isCompletedToday;
+      }).toList();
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+      child: _isCalendarView
+          ? CalendarHabitsView(
+              key: ValueKey(
+                  'calendar_${displayHabits.length}_$_hideCompletedHabits'),
+              habits: displayHabits,
+            )
+          : _buildListView(allHabits),
+    );
+  }
+
+  Widget _buildListView(List<Habit> allHabits) {
+    // List view with filters
     final filteredHabits =
         HabitFilterService.filterHabits(allHabits, _currentFilter);
 
-    return Column(
-      children: [
-        // Filter tabs
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: _buildFilterTab(
-                  'All',
-                  HabitFilter.all,
-                  allHabits.length,
+    return SlideInAnimation(
+      key: const ValueKey('list'),
+      child: Column(
+        children: [
+          // Filter tabs
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildFilterTab(
+                    'All',
+                    HabitFilter.all,
+                    allHabits.length,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildFilterTab(
-                  'Pending',
-                  HabitFilter.pending,
-                  HabitFilterService.filterHabits(
-                          allHabits, HabitFilter.pending)
-                      .length,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildFilterTab(
+                    'Pending',
+                    HabitFilter.pending,
+                    HabitFilterService.filterHabits(
+                            allHabits, HabitFilter.pending)
+                        .length,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildFilterTab(
-                  'Completed',
-                  HabitFilter.completed,
-                  HabitFilterService.filterHabits(
-                          allHabits, HabitFilter.completed)
-                      .length,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildFilterTab(
+                    'Completed',
+                    HabitFilter.completed,
+                    HabitFilterService.filterHabits(
+                            allHabits, HabitFilter.completed)
+                        .length,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
-        // Habits list
-        Expanded(
-          child: _buildHabitsList(context, filteredHabits),
-        ),
-      ],
+          // Habits list
+          Expanded(
+            child: _buildHabitsList(context, filteredHabits),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildFilterTab(String title, HabitFilter filter, int count) {
     final isSelected = _currentFilter == filter;
 
-    return GestureDetector(
+    return AnimatedScaleButton(
       onTap: () {
+        HapticService.buttonTap();
         setState(() {
           _currentFilter = filter;
         });
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
           color: isSelected
@@ -153,14 +247,15 @@ class _HabitsViewState extends State<HabitsView> {
               : null,
         ),
         child: Center(
-          child: Text(
-            '$title ($count)',
+          child: AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 200),
             style: TextStyle(
               color: isSelected
                   ? Theme.of(context).colorScheme.onPrimaryContainer
                   : Theme.of(context).colorScheme.onSurfaceVariant,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
+            child: Text('$title ($count)'),
           ),
         ),
       ),
@@ -218,7 +313,7 @@ class _HabitsViewState extends State<HabitsView> {
             padding: const EdgeInsets.only(bottom: 12),
             child: HabitCard(
               habit: habit,
-              onTap: () => _navigateToEditHabit(context, habit),
+              onTap: () => _navigateToHabitDetail(context, habit),
               onToggleCompletion: () {
                 context.read<HabitsBloc>().add(
                       HabitCompletionToggled(
@@ -234,13 +329,94 @@ class _HabitsViewState extends State<HabitsView> {
     );
   }
 
+  void _showOptionsMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withOpacity(0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'View Options',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 1),
+
+            // Hide completed option (only show in calendar view)
+            if (_isCalendarView) ...[
+              ListTile(
+                leading: Icon(
+                  _hideCompletedHabits
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(
+                  _hideCompletedHabits
+                      ? 'Show Completed Habits'
+                      : 'Hide Completed Habits',
+                ),
+                subtitle: Text(
+                  _hideCompletedHabits
+                      ? 'Show habits completed today'
+                      : 'Hide habits completed today',
+                ),
+                onTap: () {
+                  HapticService.selectionClick();
+                  setState(() {
+                    _hideCompletedHabits = !_hideCompletedHabits;
+                  });
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+
+            // Add more options here in the future
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _navigateToAddHabit(BuildContext context) {
+    HapticService.buttonTap();
     // Get the BLoC reference before navigating
     final habitsBloc = context.read<HabitsBloc>();
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
+      CustomPageRoute(
+        child: BlocProvider.value(
           value: habitsBloc,
           child: const AddEditHabitPage(),
         ),
@@ -248,11 +424,29 @@ class _HabitsViewState extends State<HabitsView> {
     );
   }
 
-  void _navigateToEditHabit(BuildContext context, Habit habit) {
+  void _navigateToHabitDetail(BuildContext context, Habit habit) {
+    HapticService.buttonTap();
+    // Get the BLoC reference before navigating
+    final habitsBloc = context.read<HabitsBloc>();
+
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => BlocProvider.value(
-          value: context.read<HabitsBloc>(),
+      CustomPageRoute(
+        child: BlocProvider.value(
+          value: habitsBloc,
+          child: HabitDetailPage(habit: habit),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToEditHabit(BuildContext context, Habit habit) {
+    // Get the BLoC reference before navigating
+    final habitsBloc = context.read<HabitsBloc>();
+
+    Navigator.of(context).push(
+      CustomPageRoute(
+        child: BlocProvider.value(
+          value: habitsBloc,
           child: AddEditHabitPage(habit: habit),
         ),
       ),

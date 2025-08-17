@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
-import '../../../habits/data/repositories/habit_repository_impl.dart';
-import '../../../../core/services/firebase_service.dart';
+import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
+import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
+import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
+import '../../../pomodoro/domain/entities/pomodoro_session.dart';
+import '../../../journal/presentation/bloc/journal_bloc.dart';
+import '../../../journal/presentation/bloc/journal_event.dart';
+import '../../../journal/presentation/bloc/journal_state.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
+import '../../../secure_journal_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -16,45 +23,47 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
-    const DashboardHomeTab(),
-    BlocProvider(
-      create: (context) => HabitsBloc(
-        HabitRepositoryImpl(
-          FirebaseService(),
-        ),
-      ),
-      child: const HabitsPage(),
-    ),
-    const Placeholder(), // Pomodoro (Phase 2)
-    const Placeholder(), // Journal (Phase 3)
-    const Placeholder(), // Streaks (Phase 4)
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadLastSelectedTab();
+  }
+
+  Future<void> _loadLastSelectedTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastSelectedTab = prefs.getInt('last_selected_tab') ?? 0;
+    if (mounted) {
+      setState(() {
+        _selectedIndex = lastSelectedTab;
+      });
+    }
+  }
+
+  Future<void> _saveSelectedTab(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_selected_tab', index);
+  }
+
+  void _onNavigateToTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _saveSelectedTab(index);
+  }
+
+  List<Widget> get _pages => [
+        DashboardHomeTab(onNavigateToTab: _onNavigateToTab),
+        const HabitsPage(),
+        const PomodoroPage(),
+        const SecureJournalPage(),
+        const SettingsPage(),
+      ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('TimeWarden'),
-        actions: [
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                onTap: () {
-                  context.read<AuthBloc>().add(AuthSignOutRequested());
-                },
-                child: const Row(
-                  children: [
-                    Icon(Icons.logout),
-                    SizedBox(width: 8),
-                    Text('Sign Out'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
@@ -63,6 +72,7 @@ class _DashboardPageState extends State<DashboardPage> {
           setState(() {
             _selectedIndex = index;
           });
+          _saveSelectedTab(index);
         },
         destinations: const [
           NavigationDestination(
@@ -86,9 +96,9 @@ class _DashboardPageState extends State<DashboardPage> {
             label: 'Journal',
           ),
           NavigationDestination(
-            icon: Icon(Icons.trending_up_outlined),
-            selectedIcon: Icon(Icons.trending_up),
-            label: 'Streaks',
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),
@@ -96,8 +106,29 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-class DashboardHomeTab extends StatelessWidget {
-  const DashboardHomeTab({super.key});
+class DashboardHomeTab extends StatefulWidget {
+  final Function(int) onNavigateToTab;
+
+  const DashboardHomeTab({
+    super.key,
+    required this.onNavigateToTab,
+  });
+
+  @override
+  State<DashboardHomeTab> createState() => _DashboardHomeTabState();
+}
+
+class _DashboardHomeTabState extends State<DashboardHomeTab> {
+  @override
+  void initState() {
+    super.initState();
+
+    // Load data using BLoCs from context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HabitsBloc>().add(HabitsLoadRequested());
+      context.read<JournalBloc>().add(const JournalLoadRequested());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,52 +171,91 @@ class DashboardHomeTab extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Quick stats
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  'Today\'s Habits',
-                  '0/0',
-                  Icons.check_circle,
-                  Colors.green,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  'Focus Time',
-                  '0 min',
-                  Icons.timer,
-                  Colors.orange,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  'Current Streak',
-                  '0 days',
-                  Icons.local_fire_department,
-                  Colors.red,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  context,
-                  'Journal Entries',
-                  '0',
-                  Icons.book,
-                  Colors.blue,
-                ),
-              ),
-            ],
+          BlocBuilder<HabitsBloc, HabitsState>(
+            builder: (context, habitsState) {
+              return BlocBuilder<JournalBloc, JournalState>(
+                builder: (context, journalState) {
+                  // Calculate stats from real data
+                  int totalHabits = 0;
+                  int completedHabits = 0;
+                  int journalEntries = 0;
+                  int currentStreak = 0;
+
+                  if (habitsState is HabitsLoaded) {
+                    totalHabits = habitsState.habits.length;
+                    final today = DateTime.now();
+                    completedHabits = habitsState.habits.where((habit) {
+                      return habit.completedDates.any((date) =>
+                          date.year == today.year &&
+                          date.month == today.month &&
+                          date.day == today.day);
+                    }).length;
+
+                    // Calculate current streak (simplified)
+                    if (habitsState.habits.isNotEmpty) {
+                      currentStreak = habitsState.habits
+                          .map((habit) => habit.currentStreak)
+                          .reduce((a, b) => a > b ? a : b);
+                    }
+                  }
+
+                  if (journalState is JournalLoaded) {
+                    journalEntries = journalState.entries.length;
+                  }
+
+                  return Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Today\'s Habits',
+                              '$completedHabits/$totalHabits',
+                              Icons.check_circle,
+                              Colors.green,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: BlocBuilder<PomodoroBloc, PomodoroState>(
+                              builder: (context, pomodoroState) {
+                                return _buildPomodoroStatCard(
+                                    context, pomodoroState);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Current Streak',
+                              '$currentStreak days',
+                              Icons.local_fire_department,
+                              Colors.red,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildStatCard(
+                              context,
+                              'Journal Entries',
+                              '$journalEntries',
+                              Icons.book,
+                              Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -195,33 +265,107 @@ class DashboardHomeTab extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+          BlocBuilder<HabitsBloc, HabitsState>(
+            builder: (context, state) {
+              if (state is HabitsLoading) {
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: CircularProgressIndicator()),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No habits yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap the Habits tab to create your first habit!',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                );
+              }
+
+              if (state is HabitsLoaded) {
+                if (state.habits.isEmpty) {
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 48,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No habits yet',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap the Habits tab to create your first habit!',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                // Show today's habits
+                final today = DateTime.now();
+                return Column(
+                  children: state.habits.take(3).map((habit) {
+                    final isCompletedToday = habit.completedDates.any((date) =>
+                        date.year == today.year &&
+                        date.month == today.month &&
+                        date.day == today.day);
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: Icon(
+                          isCompletedToday
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          color: isCompletedToday ? Colors.green : null,
                         ),
-                    textAlign: TextAlign.center,
+                        title: Text(habit.name),
+                        subtitle: Text(habit.description?.isNotEmpty == true
+                            ? habit.description!
+                            : 'No description'),
+                        onTap: () {
+                          // Navigate to habits tab
+                          widget.onNavigateToTab(1);
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
+
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Error loading habits',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
+              );
+            },
+          ), // Add this comma for the habits section
         ],
       ),
     );
@@ -263,6 +407,98 @@ class DashboardHomeTab extends StatelessWidget {
                   ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPomodoroStatCard(
+      BuildContext context, PomodoroState pomodoroState) {
+    String title = 'Focus Time';
+    String value = '0m';
+
+    // Calculate total completed work time
+    if (pomodoroState is PomodoroReady ||
+        pomodoroState is PomodoroRunning ||
+        pomodoroState is PomodoroPaused) {
+      int totalMinutes = 0;
+
+      if (pomodoroState is PomodoroReady) {
+        totalMinutes = pomodoroState.completedWorkSessions *
+            pomodoroState.settings.workDurationMinutes;
+      } else if (pomodoroState is PomodoroRunning) {
+        totalMinutes = pomodoroState.completedWorkSessions *
+            pomodoroState.settings.workDurationMinutes;
+        // Add current session's completed time if it's a work session
+        if (pomodoroState.currentSession.type == PomodoroType.work) {
+          final totalDuration =
+              Duration(minutes: pomodoroState.settings.workDurationMinutes);
+          final completedTime =
+              totalDuration - pomodoroState.currentSession.remainingTime;
+          totalMinutes += completedTime.inMinutes;
+        }
+      } else if (pomodoroState is PomodoroPaused) {
+        totalMinutes = pomodoroState.completedWorkSessions *
+            pomodoroState.settings.workDurationMinutes;
+        // Add current session's completed time if it's a work session
+        if (pomodoroState.currentSession.type == PomodoroType.work) {
+          final totalDuration =
+              Duration(minutes: pomodoroState.settings.workDurationMinutes);
+          final completedTime =
+              totalDuration - pomodoroState.currentSession.remainingTime;
+          totalMinutes += completedTime.inMinutes;
+        }
+      }
+
+      if (totalMinutes >= 60) {
+        final hours = totalMinutes ~/ 60;
+        final minutes = totalMinutes % 60;
+        if (minutes > 0) {
+          value = '${hours}h ${minutes}m';
+        } else {
+          value = '${hours}h';
+        }
+      } else {
+        value = '${totalMinutes}m';
+      }
+    }
+
+    return Card(
+      child: InkWell(
+        onTap: () {
+          widget.onNavigateToTab(2); // Navigate to Pomodoro tab
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.timer, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

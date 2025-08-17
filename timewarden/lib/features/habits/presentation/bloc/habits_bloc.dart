@@ -167,10 +167,13 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     try {
       final currentState = state;
       if (currentState is HabitsLoaded) {
-        final habit = currentState.habits.firstWhere(
+        final habitIndex = currentState.habits.indexWhere(
           (h) => h.id == event.habitId,
         );
 
+        if (habitIndex == -1) return;
+
+        final habit = currentState.habits[habitIndex];
         final dateOnly =
             DateTime(event.date.year, event.date.month, event.date.day);
         final isCompleted = habit.completedDates.any((date) =>
@@ -181,19 +184,39 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         print(
             'HabitsBloc: Toggling completion for habit ${habit.name}, currently completed: $isCompleted');
 
+        // Update the habit locally first for immediate UI feedback
+        List<DateTime> updatedCompletedDates;
+        if (isCompleted) {
+          updatedCompletedDates = habit.completedDates
+              .where((date) => !(date.year == dateOnly.year &&
+                  date.month == dateOnly.month &&
+                  date.day == dateOnly.day))
+              .toList();
+        } else {
+          updatedCompletedDates = [...habit.completedDates, dateOnly];
+        }
+
+        final updatedHabit =
+            habit.copyWith(completedDates: updatedCompletedDates);
+        final updatedHabits = List<Habit>.from(currentState.habits);
+        updatedHabits[habitIndex] = updatedHabit;
+
+        // Emit the updated state immediately for instant UI feedback
+        emit(HabitsLoaded(updatedHabits));
+
+        // Then update the backend asynchronously
         if (isCompleted) {
           await _habitRepository.markHabitIncomplete(event.habitId, event.date);
         } else {
           await _habitRepository.markHabitComplete(event.habitId, event.date);
         }
 
-        print(
-            'HabitsBloc: Habit completion toggled successfully, refreshing list');
-        // Refresh the list after toggling completion
-        add(HabitsLoadRequested());
+        print('HabitsBloc: Habit completion toggled successfully in backend');
       }
     } catch (e) {
       print('HabitsBloc: Error toggling habit completion: $e');
+      // Reload the data to sync with backend if there's an error
+      add(HabitsLoadRequested());
       emit(HabitsError(e.toString()));
     }
   }

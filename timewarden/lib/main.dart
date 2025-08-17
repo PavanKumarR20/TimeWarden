@@ -3,13 +3,21 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'core/services/log_service.dart';
+import 'core/services/theme_service.dart';
+import 'core/services/notification_service.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/auth_wrapper.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
+import 'features/pomodoro/presentation/bloc/pomodoro_bloc.dart';
+import 'features/habits/presentation/bloc/habits_bloc.dart';
+import 'features/habits/data/repositories/habit_repository_impl.dart';
+import 'features/journal/presentation/bloc/journal_bloc.dart';
+import 'features/journal/data/repositories/journal_repository_impl.dart';
 import 'core/services/firebase_service.dart';
 
 void main() async {
@@ -32,6 +40,9 @@ void main() async {
   // Initialize Hive for local storage
   await Hive.initFlutter();
 
+  // Initialize notification service
+  await NotificationService().initialize();
+
   runApp(const TimeWardenApp());
 }
 
@@ -40,33 +51,48 @@ class TimeWardenApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => AuthBloc(AuthRepositoryImpl(FirebaseService()))
-            ..add(AuthCheckRequested()),
-        ),
-      ],
-      child: MaterialApp(
-        title: 'TimeWarden',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-          textTheme: GoogleFonts.interTextTheme(),
-        ),
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF6750A4),
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-          textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
-        ),
-        home: const AuthWrapper(),
-        debugShowCheckedModeBanner: false,
+    return ChangeNotifierProvider(
+      create: (context) => ThemeService(),
+      child: Consumer<ThemeService>(
+        builder: (context, themeService, child) {
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (context) =>
+                    AuthBloc(AuthRepositoryImpl(FirebaseService()))
+                      ..add(AuthCheckRequested()),
+              ),
+              BlocProvider(
+                create: (context) => PomodoroBloc(),
+              ),
+              BlocProvider(
+                create: (context) => HabitsBloc(
+                  HabitRepositoryImpl(FirebaseService()),
+                ),
+              ),
+              BlocProvider(
+                create: (context) => JournalBloc(
+                  JournalRepositoryImpl(FirebaseService()),
+                ),
+              ),
+            ],
+            child: MaterialApp(
+              title: 'TimeWarden',
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeService.themeMode,
+              home: const AuthWrapper(),
+              debugShowCheckedModeBanner: false,
+              builder: (context, child) {
+                return AnimatedTheme(
+                  duration: const Duration(milliseconds: 300),
+                  data: Theme.of(context),
+                  child: child!,
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }

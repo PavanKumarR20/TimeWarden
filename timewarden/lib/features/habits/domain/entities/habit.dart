@@ -73,6 +73,7 @@ class Habit extends Equatable {
   final String id;
   final String name;
   final String? description;
+  final String? notes; // Additional notes for detailed information
   final HabitCategory category;
   final HabitFrequency frequency;
   final DateTime createdAt;
@@ -83,10 +84,16 @@ class Habit extends Equatable {
   final String? color; // Hex color code
   final String? icon; // Icon name or emoji
 
+  // Reminder settings
+  final bool reminderEnabled;
+  final int? reminderHour; // 0-23
+  final int? reminderMinute; // 0-59
+
   const Habit({
     required this.id,
     required this.name,
     this.description,
+    this.notes,
     required this.category,
     required this.frequency,
     required this.createdAt,
@@ -96,6 +103,9 @@ class Habit extends Equatable {
     this.completedDates = const [],
     this.color,
     this.icon,
+    this.reminderEnabled = false,
+    this.reminderHour,
+    this.reminderMinute,
   });
 
   bool get isCompletedToday {
@@ -136,6 +146,7 @@ class Habit extends Equatable {
     String? id,
     String? name,
     String? description,
+    String? notes,
     HabitCategory? category,
     HabitFrequency? frequency,
     DateTime? createdAt,
@@ -145,11 +156,15 @@ class Habit extends Equatable {
     List<DateTime>? completedDates,
     String? color,
     String? icon,
+    bool? reminderEnabled,
+    int? reminderHour,
+    int? reminderMinute,
   }) {
     return Habit(
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
+      notes: notes ?? this.notes,
       category: category ?? this.category,
       frequency: frequency ?? this.frequency,
       createdAt: createdAt ?? this.createdAt,
@@ -159,6 +174,9 @@ class Habit extends Equatable {
       completedDates: completedDates ?? this.completedDates,
       color: color ?? this.color,
       icon: icon ?? this.icon,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderHour: reminderHour ?? this.reminderHour,
+      reminderMinute: reminderMinute ?? this.reminderMinute,
     );
   }
 
@@ -167,6 +185,7 @@ class Habit extends Equatable {
       'id': id,
       'name': name,
       'description': description,
+      'notes': notes,
       'category': category.name,
       'frequency': {
         'type': frequency.type.name,
@@ -181,6 +200,9 @@ class Habit extends Equatable {
           completedDates.map((date) => date.toIso8601String()).toList(),
       'color': color,
       'icon': icon,
+      'reminderEnabled': reminderEnabled,
+      'reminderHour': reminderHour,
+      'reminderMinute': reminderMinute,
     };
   }
 
@@ -189,6 +211,7 @@ class Habit extends Equatable {
       id: json['id'] as String,
       name: json['name'] as String,
       description: json['description'] as String?,
+      notes: json['notes'] as String?,
       category: HabitCategory.values.firstWhere(
         (e) => e.name == json['category'],
         orElse: () => HabitCategory.other,
@@ -211,6 +234,9 @@ class Habit extends Equatable {
           [],
       color: json['color'] as String?,
       icon: json['icon'] as String?,
+      reminderEnabled: json['reminderEnabled'] as bool? ?? false,
+      reminderHour: json['reminderHour'] as int?,
+      reminderMinute: json['reminderMinute'] as int?,
     );
   }
 
@@ -219,6 +245,7 @@ class Habit extends Equatable {
         id,
         name,
         description,
+        notes,
         category,
         frequency,
         createdAt,
@@ -228,5 +255,8 @@ class Habit extends Equatable {
         completedDates,
         color,
         icon,
+        reminderEnabled,
+        reminderHour,
+        reminderMinute,
       ];
 }

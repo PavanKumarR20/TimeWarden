@@ -4,6 +4,8 @@ import 'package:uuid/uuid.dart';
 import '../../domain/entities/habit.dart';
 import '../bloc/habits_bloc.dart';
 import '../widgets/frequency_selector.dart';
+import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/notification_service.dart';
 
 class AddEditHabitPage extends StatefulWidget {
   final Habit? habit;
@@ -20,6 +22,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _notesController = TextEditingController();
 
   HabitCategory _selectedCategory = HabitCategory.health;
   HabitFrequency _selectedFrequency = const HabitFrequency(
@@ -28,6 +31,10 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   );
   String? _selectedColor;
   String? _selectedIcon;
+
+  // Reminder fields
+  bool _reminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
 
   final List<Color> _availableColors = [
     Colors.red,
@@ -73,10 +80,19 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
     if (widget.habit != null) {
       _nameController.text = widget.habit!.name;
       _descriptionController.text = widget.habit!.description ?? '';
+      _notesController.text = widget.habit!.notes ?? '';
       _selectedCategory = widget.habit!.category;
       _selectedFrequency = widget.habit!.frequency;
       _selectedColor = widget.habit!.color;
       _selectedIcon = widget.habit!.icon;
+      _reminderEnabled = widget.habit!.reminderEnabled;
+      if (widget.habit!.reminderHour != null &&
+          widget.habit!.reminderMinute != null) {
+        _reminderTime = TimeOfDay(
+          hour: widget.habit!.reminderHour!,
+          minute: widget.habit!.reminderMinute!,
+        );
+      }
     } else {
       _selectedColor = _availableColors.first.value.toRadixString(16);
       _selectedIcon = _availableIcons.first;
@@ -87,6 +103,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -99,10 +116,16 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 description: _descriptionController.text.trim().isEmpty
                     ? null
                     : _descriptionController.text.trim(),
+                notes: _notesController.text.trim().isEmpty
+                    ? null
+                    : _notesController.text.trim(),
                 category: _selectedCategory,
                 frequency: _selectedFrequency,
                 color: _selectedColor,
                 icon: _selectedIcon,
+                reminderEnabled: _reminderEnabled,
+                reminderHour: _reminderEnabled ? _reminderTime.hour : null,
+                reminderMinute: _reminderEnabled ? _reminderTime.minute : null,
               )
             : Habit(
                 id: const Uuid().v4(),
@@ -110,6 +133,9 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 description: _descriptionController.text.trim().isEmpty
                     ? null
                     : _descriptionController.text.trim(),
+                notes: _notesController.text.trim().isEmpty
+                    ? null
+                    : _notesController.text.trim(),
                 category: _selectedCategory,
                 frequency: _selectedFrequency,
                 createdAt: DateTime.now(),
@@ -119,9 +145,23 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 completedDates: const [],
                 color: _selectedColor,
                 icon: _selectedIcon,
+                reminderEnabled: _reminderEnabled,
+                reminderHour: _reminderEnabled ? _reminderTime.hour : null,
+                reminderMinute: _reminderEnabled ? _reminderTime.minute : null,
               );
 
         print('Creating habit: ${habit.name} with ID: ${habit.id}');
+
+        // Schedule notification if reminder is enabled
+        if (_reminderEnabled && !widget.isEditing) {
+          NotificationService().scheduleDailyReminder(
+            habitId: habit.id,
+            habitName: habit.name,
+            hour: _reminderTime.hour,
+            minute: _reminderTime.minute,
+            description: habit.description,
+          );
+        }
 
         if (widget.isEditing) {
           context.read<HabitsBloc>().add(HabitUpdated(habit));
@@ -213,6 +253,21 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 prefixIcon: Icon(Icons.description_outlined),
               ),
               maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+
+            // Notes field
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional)',
+                hintText:
+                    'Add detailed instructions, workout routines, or any additional information...',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.notes_outlined),
+              ),
+              maxLines: 5,
+              minLines: 3,
             ),
             const SizedBox(height: 16),
 
@@ -334,11 +389,114 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 );
               }).toList(),
             ),
+            const SizedBox(height: 24),
+
+            // Reminder section
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.notifications_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Reminder',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: _reminderEnabled,
+                          onChanged: (value) {
+                            HapticService.selectionClick();
+                            setState(() {
+                              _reminderEnabled = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    if (_reminderEnabled) ...[
+                      const SizedBox(height: 12),
+                      const Divider(),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Reminder Time',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          HapticService.buttonTap();
+                          final TimeOfDay? picked = await showTimePicker(
+                            context: context,
+                            initialTime: _reminderTime,
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _reminderTime = picked;
+                            });
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                _reminderTime.format(context),
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              const Spacer(),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 32),
 
             // Save button
             FilledButton(
-              onPressed: _saveHabit,
+              onPressed: () {
+                HapticService.buttonTap();
+                _saveHabit();
+              },
               child: Text(widget.isEditing ? 'Update Habit' : 'Create Habit'),
             ),
           ],
