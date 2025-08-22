@@ -62,11 +62,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY',
-        defaultValue: 'AIzaSyDzijUURC_aSkmw-1nFEeuKwTbT8cBk5yw'),
+        defaultValue: 'AIzaSyCs2o974smf0HBVEyVYKdmUjpg4fuxAviQ'),
     appId: String.fromEnvironment('FIREBASE_ANDROID_APP_ID',
-        defaultValue: '1:637467704431:android:51fd6dc24bcbd855773ca'),
+        defaultValue: '1:623746770431:android:91dfdde24b2bd8955773ca'),
     messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID',
-        defaultValue: '637467704431'),
+        defaultValue: '623746770431'),
     projectId: String.fromEnvironment('FIREBASE_PROJECT_ID',
         defaultValue: 'timewarden-b426f'),
     storageBucket: String.fromEnvironment('FIREBASE_STORAGE_BUCKET',
