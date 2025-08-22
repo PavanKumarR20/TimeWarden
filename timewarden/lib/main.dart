@@ -23,10 +23,20 @@ import 'core/services/firebase_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase (check if not already initialized)
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    LogService.firebase('Firebase initialized successfully');
+  } catch (e) {
+    if (e.toString().contains('duplicate-app')) {
+      LogService.firebase('Firebase already initialized, continuing...');
+    } else {
+      LogService.firebase('Firebase initialization error', error: e);
+      rethrow;
+    }
+  }
 
   // Test Firestore connection
   try {

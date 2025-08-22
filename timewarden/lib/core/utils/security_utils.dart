@@ -14,27 +14,28 @@ class SecurityUtils {
   static bool isValidPassword(String password) {
     // At least 8 characters, contains uppercase, lowercase, and number
     if (password.length < 8) return false;
-    
+
     final hasUppercase = password.contains(RegExp(r'[A-Z]'));
     final hasLowercase = password.contains(RegExp(r'[a-z]'));
     final hasNumbers = password.contains(RegExp(r'[0-9]'));
-    
+
     return hasUppercase && hasLowercase && hasNumbers;
   }
 
   /// Sanitizes user input to prevent injection attacks
   static String sanitizeInput(String input) {
     return input
-        .replaceAll(RegExp(r'[<>"'"'"';]'), '') // Remove potentially dangerous characters
+        .replaceAll(RegExp(r'[<>"' "'" ';]'),
+            '') // Remove potentially dangerous characters
         .trim();
   }
 
   /// Validates habit name input
   static bool isValidHabitName(String name) {
     final sanitized = sanitizeInput(name);
-    return sanitized.isNotEmpty && 
-           sanitized.length <= 50 && 
-           sanitized.length >= 1;
+    return sanitized.isNotEmpty &&
+        sanitized.length <= 50 &&
+        sanitized.length >= 1;
   }
 
   /// Validates journal entry content
@@ -45,7 +46,8 @@ class SecurityUtils {
 
   /// Checks if string contains only safe characters
   static bool containsOnlySafeCharacters(String input) {
-    final safeCharRegex = RegExp(r'^[a-zA-Z0-9\s\-_.,:;!?()[\]{}@#$%&*+=|~`^]+$');
+    final safeCharRegex =
+        RegExp(r'^[a-zA-Z0-9\s\-_.,:;!?()[\]{}@#$%&*+=|~`^]+$');
     return safeCharRegex.hasMatch(input);
   }
 
@@ -66,17 +68,18 @@ class SecurityUtils {
 
   /// Rate limiting helper for sensitive operations
   static final Map<String, DateTime> _lastOperationTime = {};
-  
-  static bool canPerformOperation(String operationKey, {int cooldownSeconds = 1}) {
+
+  static bool canPerformOperation(String operationKey,
+      {int cooldownSeconds = 1}) {
     final now = DateTime.now();
     final lastTime = _lastOperationTime[operationKey];
-    
-    if (lastTime == null || 
+
+    if (lastTime == null ||
         now.difference(lastTime).inSeconds >= cooldownSeconds) {
       _lastOperationTime[operationKey] = now;
       return true;
     }
-    
+
     return false;
   }
 
