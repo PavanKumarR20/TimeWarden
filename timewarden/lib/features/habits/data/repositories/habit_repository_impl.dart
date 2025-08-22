@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/log_service.dart';
+import '../../../../core/utils/security_utils.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/repositories/habit_repository.dart';
 
@@ -11,51 +13,50 @@ class HabitRepositoryImpl implements HabitRepository {
   @override
   Future<List<Habit>> getHabits() async {
     final userId = _firebaseService.currentUserId;
-    print('HabitRepository: Getting habits for user: $userId');
+    LogService.debug('Getting habits for user: $userId', tag: 'HabitRepository');
 
     if (userId == null) {
-      print('HabitRepository: User not authenticated, returning empty list');
+      LogService.warning('User not authenticated, returning empty list', tag: 'HabitRepository');
       return <Habit>[];
     }
 
     try {
       final snapshot = await _firebaseService.getUserHabits(userId).get();
 
-      print(
-          'HabitRepository: Received snapshot with ${snapshot.docs.length} documents');
+      LogService.debug(
+          'Received snapshot with ${snapshot.docs.length} documents', tag: 'HabitRepository');
 
       if (snapshot.docs.isEmpty) {
-        print('HabitRepository: No habits found, returning empty list');
+        LogService.debug('No habits found, returning empty list', tag: 'HabitRepository');
         return <Habit>[];
       }
 
       final habits = <Habit>[];
       for (final doc in snapshot.docs) {
         try {
-          print('HabitRepository: Processing document: ${doc.id}');
+          LogService.debug('Processing document: ${doc.id}', tag: 'HabitRepository');
           final data = doc.data() as Map<String, dynamic>;
           data['id'] = doc.id;
 
           final habit = Habit.fromJson(data);
-          print('HabitRepository: Successfully parsed habit: ${habit.name}');
+          LogService.debug('Successfully parsed habit: ${habit.name}', tag: 'HabitRepository');
           habits.add(habit);
         } catch (e) {
-          print('HabitRepository: Error parsing habit ${doc.id}: $e');
-          print('HabitRepository: Document data: ${doc.data()}');
+          LogService.error('Error parsing habit ${doc.id}', tag: 'HabitRepository', error: e);
           // Skip this document instead of failing completely
           continue;
         }
       }
 
-      print('HabitRepository: Returning ${habits.length} habits');
+      LogService.debug('Returning ${habits.length} habits', tag: 'HabitRepository');
       return habits;
     } catch (e) {
-      print('HabitRepository: Error fetching habits: $e');
+      LogService.error('Error fetching habits', tag: 'HabitRepository', error: e);
       // Return empty list instead of throwing for common errors
       if (e.toString().contains('permission') ||
           e.toString().contains('PERMISSION_DENIED') ||
           e.toString().contains('not found')) {
-        print('HabitRepository: Returning empty list due to error');
+        LogService.warning('Returning empty list due to permission error', tag: 'HabitRepository');
         return <Habit>[];
       }
       rethrow;
@@ -66,6 +67,22 @@ class HabitRepositoryImpl implements HabitRepository {
   Future<void> addHabit(Habit habit) async {
     final userId = _firebaseService.currentUserId;
     if (userId == null) throw Exception('User not authenticated');
+
+    // Security validation
+    if (!SecurityUtils.isValidUserId(userId)) {
+      throw Exception('Invalid user ID');
+    }
+
+    if (!SecurityUtils.isValidHabitName(habit.name)) {
+      throw Exception('Invalid habit name');
+    }
+
+    // Rate limiting for habit creation
+    if (!SecurityUtils.canPerformOperation('create_habit_$userId', cooldownSeconds: 2)) {
+      throw Exception('Too many requests. Please wait before creating another habit.');
+    }
+
+    LogService.debug('Adding habit: ${habit.name} for user: $userId', tag: 'HabitRepository');
 
     final habitData = habit.toJson();
     habitData.remove('id'); // Let Firestore generate the ID
@@ -78,13 +95,30 @@ class HabitRepositoryImpl implements HabitRepository {
     final userId = _firebaseService.currentUserId;
     if (userId == null) throw Exception('User not authenticated');
 
-    final habitData = habit.toJson();
-    habitData.remove('id'); // Don't update the ID field
+    // Security validation
+    if (!SecurityUtils.isValidUserId(userId)) {
+      throw Exception('Invalid user ID');
+    }
 
-    await _firebaseService
-        .getUserHabits(userId)
-        .doc(habit.id)
-        .update(habitData);
+    if (!SecurityUtils.isValidHabitName(habit.name)) {
+      throw Exception('Invalid habit name');
+    }
+
+    if (habit.id.isEmpty) {
+      throw Exception('Invalid habit ID');
+    }
+
+    // Rate limiting for habit updates
+    if (!SecurityUtils.canPerformOperation('update_habit_$userId', cooldownSeconds: 1)) {
+      throw Exception('Too many requests. Please wait before updating again.');
+    }
+
+    LogService.debug('Updating habit: ${habit.name} for user: $userId', tag: 'HabitRepository');
+
+    final habitData = habit.toJson();
+    habitData.remove('id'); // Remove ID before updating
+
+    await _firebaseService.getUserHabits(userId).doc(habit.id).update(habitData);
   }
 
   @override

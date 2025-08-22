@@ -3,116 +3,116 @@ import 'dart:math';
 class QuotesService {
   static final List<Quote> _quotes = [
     // Productivity & Time Management
-    Quote(
+    const Quote(
       text: "Time is what we want most, but what we use worst.",
       author: "William Penn",
     ),
-    Quote(
+    const Quote(
       text:
           "The key is not to prioritize what's on your schedule, but to schedule your priorities.",
       author: "Stephen Covey",
     ),
-    Quote(
+    const Quote(
       text: "You may delay, but time will not.",
       author: "Benjamin Franklin",
     ),
-    Quote(
+    const Quote(
       text: "Focus on being productive instead of busy.",
       author: "Tim Ferriss",
     ),
-    Quote(
+    const Quote(
       text: "The way to get started is to quit talking and begin doing.",
       author: "Walt Disney",
     ),
 
     // Motivation & Success
-    Quote(
+    const Quote(
       text:
           "Success is not final, failure is not fatal: it is the courage to continue that counts.",
       author: "Winston Churchill",
     ),
-    Quote(
+    const Quote(
       text: "The only way to do great work is to love what you do.",
       author: "Steve Jobs",
     ),
-    Quote(
+    const Quote(
       text: "Don't watch the clock; do what it does. Keep going.",
       author: "Sam Levenson",
     ),
-    Quote(
+    const Quote(
       text: "Your limitation—it's only your imagination.",
       author: "Unknown",
     ),
-    Quote(
+    const Quote(
       text: "Push yourself, because no one else is going to do it for you.",
       author: "Unknown",
     ),
 
     // Growth & Persistence
-    Quote(
+    const Quote(
       text: "The expert in anything was once a beginner.",
       author: "Helen Hayes",
     ),
-    Quote(
+    const Quote(
       text: "Every moment is a fresh beginning.",
       author: "T.S. Eliot",
     ),
-    Quote(
+    const Quote(
       text: "It always seems impossible until it's done.",
       author: "Nelson Mandela",
     ),
-    Quote(
+    const Quote(
       text: "Small progress is still progress.",
       author: "Unknown",
     ),
-    Quote(
+    const Quote(
       text:
           "You don't have to be great to get started, but you have to get started to be great.",
       author: "Les Brown",
     ),
 
     // Focus & Mindfulness
-    Quote(
+    const Quote(
       text:
           "Concentrate all your thoughts upon the work at hand. The sun's rays do not burn until brought to a focus.",
       author: "Alexander Graham Bell",
     ),
-    Quote(
+    const Quote(
       text: "Quality is not an act, it is a habit.",
       author: "Aristotle",
     ),
-    Quote(
+    const Quote(
       text: "What you do today can improve all your tomorrows.",
       author: "Ralph Marston",
     ),
-    Quote(
+    const Quote(
       text: "The future depends on what you do today.",
       author: "Mahatma Gandhi",
     ),
-    Quote(
+    const Quote(
       text: "Today is the first day of the rest of your life.",
       author: "John Denver",
     ),
 
     // Habits & Consistency
-    Quote(
+    const Quote(
       text:
           "We are what we repeatedly do. Excellence, then, is not an act, but a habit.",
       author: "Aristotle",
     ),
-    Quote(
+    const Quote(
       text: "Habits are the compound interest of self-improvement.",
       author: "James Clear",
     ),
-    Quote(
+    const Quote(
       text: "The secret of getting ahead is getting started.",
       author: "Mark Twain",
     ),
-    Quote(
+    const Quote(
       text: "A year from now you may wish you had started today.",
       author: "Karen Lamb",
     ),
-    Quote(
+    const Quote(
       text: "Progress, not perfection.",
       author: "Unknown",
     ),

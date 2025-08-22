@@ -31,6 +31,15 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Firebase Configuration with sensitive keys
+lib/firebase_options.dart
+firebase_options.dart
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
 # Symbolication related
 app.*.symbols
 

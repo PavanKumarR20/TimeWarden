@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 
-import 'firebase_options.dart';
+import 'firebase_options_secure.dart';
 import 'core/services/log_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';

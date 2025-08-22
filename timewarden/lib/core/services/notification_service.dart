@@ -259,7 +259,7 @@ class NotificationService {
       maxProgress: 100,
       showProgress: true,
       indeterminate: false,
-      subText: '${progressPercentage}% complete',
+      subText: '$progressPercentage% complete',
       enableLights: false,
       enableVibration: false,
       playSound: false,

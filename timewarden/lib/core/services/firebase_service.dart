@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'log_service.dart';
+import '../utils/performance_utils.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 class FirebaseService {
@@ -25,14 +26,23 @@ class FirebaseService {
     required String email,
     required String password,
   }) async {
-    try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
+    return await PerformanceUtils.timeOperation(
+      'auth_sign_in',
+      () async {
+        LogService.info('Attempting sign in for user: $email');
+        try {
+          final result = await _auth.signInWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+          LogService.info('Sign in successful for user: ${result.user?.uid}');
+          return result;
+        } catch (e) {
+          LogService.error('Sign in failed', error: e);
+          rethrow;
+        }
+      },
+    );
   }
 
   // Sign up with email and password
@@ -86,26 +96,46 @@ class FirebaseService {
 
   // Get user document reference
   DocumentReference getUserDoc(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception('Unauthorized access: User can only access their own data');
+    }
     return _firestore.collection('users').doc(userId);
   }
 
   // Get user habits collection
   CollectionReference getUserHabits(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception('Unauthorized access: User can only access their own habits');
+    }
     return _firestore.collection('users').doc(userId).collection('habits');
   }
 
-  // Get user journal entries collection
-  CollectionReference getUserJournalEntries(String userId) {
+  // Get user journal collection
+  CollectionReference getUserJournal(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception('Unauthorized access: User can only access their own journal');
+    }
     return _firestore.collection('users').doc(userId).collection('journal');
   }
 
   // Get user pomodoro sessions collection
   CollectionReference getUserPomodoroSessions(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception('Unauthorized access: User can only access their own pomodoro sessions');
+    }
     return _firestore.collection('users').doc(userId).collection('pomodoros');
   }
 
   // Get user streaks collection
   CollectionReference getUserStreaks(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception('Unauthorized access: User can only access their own streaks');
+    }
     return _firestore.collection('users').doc(userId).collection('streaks');
   }
 }

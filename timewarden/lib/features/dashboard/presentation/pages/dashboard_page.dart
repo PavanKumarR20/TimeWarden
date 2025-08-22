@@ -331,7 +331,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                     child: Center(
                       child: Column(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.celebration,
                             size: 64,
                             color: Colors.green,
@@ -529,7 +529,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.timer, color: Colors.orange, size: 20),
+                  const Icon(Icons.timer, color: Colors.orange, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

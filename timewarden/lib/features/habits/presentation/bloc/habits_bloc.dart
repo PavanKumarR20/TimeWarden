@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/repositories/habit_repository.dart';
+import '../../../../core/services/log_service.dart';
 
 // Events
 abstract class HabitsEvent extends Equatable {
@@ -99,15 +100,15 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     HabitsLoadRequested event,
     Emitter<HabitsState> emit,
   ) async {
-    print('HabitsBloc: Load requested');
+    LogService.debug('Load requested', tag: 'HabitsBloc');
     emit(HabitsLoading());
 
     try {
       final habits = await _habitRepository.getHabits();
-      print('HabitsBloc: Loaded ${habits.length} habits successfully');
+      LogService.debug('Loaded ${habits.length} habits successfully', tag: 'HabitsBloc');
       emit(HabitsLoaded(habits));
     } catch (e) {
-      print('HabitsBloc: Error loading habits: $e');
+      LogService.error('Error loading habits', tag: 'HabitsBloc', error: e);
       emit(HabitsError(e.toString()));
     }
   }
@@ -117,13 +118,13 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     Emitter<HabitsState> emit,
   ) async {
     try {
-      print('HabitsBloc: Adding habit: ${event.habit.name}');
+      LogService.debug('Adding habit: ${event.habit.name}', tag: 'HabitsBloc');
       await _habitRepository.addHabit(event.habit);
-      print('HabitsBloc: Habit added successfully, refreshing list');
+      LogService.debug('Habit added successfully, refreshing list', tag: 'HabitsBloc');
       // Refresh the list after adding
       add(HabitsLoadRequested());
     } catch (e) {
-      print('HabitsBloc: Error adding habit: $e');
+      LogService.error('Error adding habit', tag: 'HabitsBloc', error: e);
       emit(HabitsError(e.toString()));
     }
   }
@@ -133,13 +134,13 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     Emitter<HabitsState> emit,
   ) async {
     try {
-      print('HabitsBloc: Updating habit: ${event.habit.name}');
+      LogService.debug('Updating habit: ${event.habit.name}', tag: 'HabitsBloc');
       await _habitRepository.updateHabit(event.habit);
-      print('HabitsBloc: Habit updated successfully, refreshing list');
+      LogService.debug('Habit updated successfully, refreshing list', tag: 'HabitsBloc');
       // Refresh the list after updating
       add(HabitsLoadRequested());
     } catch (e) {
-      print('HabitsBloc: Error updating habit: $e');
+      LogService.error('Error updating habit', tag: 'HabitsBloc', error: e);
       emit(HabitsError(e.toString()));
     }
   }
@@ -149,13 +150,13 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     Emitter<HabitsState> emit,
   ) async {
     try {
-      print('HabitsBloc: Deleting habit: ${event.habitId}');
+      LogService.debug('Deleting habit: ${event.habitId}', tag: 'HabitsBloc');
       await _habitRepository.deleteHabit(event.habitId);
-      print('HabitsBloc: Habit deleted successfully, refreshing list');
+      LogService.debug('Habit deleted successfully, refreshing list', tag: 'HabitsBloc');
       // Refresh the list after deleting
       add(HabitsLoadRequested());
     } catch (e) {
-      print('HabitsBloc: Error deleting habit: $e');
+      LogService.error('Error deleting habit', tag: 'HabitsBloc', error: e);
       emit(HabitsError(e.toString()));
     }
   }
@@ -181,8 +182,8 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
             date.month == dateOnly.month &&
             date.day == dateOnly.day);
 
-        print(
-            'HabitsBloc: Toggling completion for habit ${habit.name}, currently completed: $isCompleted');
+        LogService.debug(
+            'Toggling completion for habit ${habit.name}, currently completed: $isCompleted', tag: 'HabitsBloc');
 
         // Update the habit locally first for immediate UI feedback
         List<DateTime> updatedCompletedDates;
@@ -211,10 +212,10 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
           await _habitRepository.markHabitComplete(event.habitId, event.date);
         }
 
-        print('HabitsBloc: Habit completion toggled successfully in backend');
+        LogService.debug('Habit completion toggled successfully in backend', tag: 'HabitsBloc');
       }
     } catch (e) {
-      print('HabitsBloc: Error toggling habit completion: $e');
+      LogService.error('Error toggling habit completion', tag: 'HabitsBloc', error: e);
       // Reload the data to sync with backend if there's an error
       add(HabitsLoadRequested());
       emit(HabitsError(e.toString()));

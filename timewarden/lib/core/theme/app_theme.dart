@@ -31,16 +31,16 @@ class AppTheme {
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: lightSurface,
-        background: lightBackground,
+        // background: lightBackground, // Deprecated - use surface instead
         error: errorColor,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onTertiary: Colors.white,
         onSurface: Color(0xFF1A1A1A),
-        onBackground: Color(0xFF1A1A1A),
+        // onBackground: Color(0xFF1A1A1A), // Deprecated - use onSurface instead
         onError: Colors.white,
         outline: Color(0xFFE5E7EB),
-        surfaceVariant: Color(0xFFF3F4F6),
+        surfaceContainerHighest: Color(0xFFF3F4F6), // Replaces surfaceVariant
         onSurfaceVariant: Color(0xFF6B7280),
       ),
       textTheme: GoogleFonts.interTextTheme().copyWith(
@@ -156,16 +156,16 @@ class AppTheme {
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: darkSurface,
-        background: darkBackground,
+        // background: darkBackground, // Deprecated - use surface instead
         error: errorColor,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onTertiary: Colors.white,
         onSurface: Color(0xFFE5E7EB),
-        onBackground: Color(0xFFE5E7EB),
+        // onBackground: Color(0xFFE5E7EB), // Deprecated - use onSurface instead
         onError: Colors.white,
         outline: Color(0xFF374151),
-        surfaceVariant: Color(0xFF2D2D2D),
+        surfaceContainerHighest: Color(0xFF2D2D2D), // Replaces surfaceVariant
         onSurfaceVariant: Color(0xFF9CA3AF),
       ),
       textTheme: GoogleFonts.interTextTheme().copyWith(

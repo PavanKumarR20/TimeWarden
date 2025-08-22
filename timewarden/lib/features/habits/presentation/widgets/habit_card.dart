@@ -68,7 +68,7 @@ class HabitCard extends StatelessWidget {
                       HapticService.buttonTap();
                       onToggleCompletion?.call();
                     },
-                    child: Container(
+                    child: SizedBox(
                       width: 48,
                       height: 48,
                       child: Center(

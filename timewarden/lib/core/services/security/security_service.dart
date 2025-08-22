@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../log_service.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
@@ -56,7 +57,7 @@ class SecurityService {
 
       return isAuthenticated;
     } on PlatformException catch (e) {
-      print('Biometric authentication error: $e');
+      LogService.warning('Biometric authentication error', tag: 'SecurityService', error: e);
       return false;
     }
   }
