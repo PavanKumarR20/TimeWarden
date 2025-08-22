@@ -98,7 +98,8 @@ class FirebaseService {
   DocumentReference getUserDoc(String userId) {
     // Security check: ensure current user can only access their own data
     if (currentUserId == null || currentUserId != userId) {
-      throw Exception('Unauthorized access: User can only access their own data');
+      throw Exception(
+          'Unauthorized access: User can only access their own data');
     }
     return _firestore.collection('users').doc(userId);
   }
@@ -107,7 +108,8 @@ class FirebaseService {
   CollectionReference getUserHabits(String userId) {
     // Security check: ensure current user can only access their own data
     if (currentUserId == null || currentUserId != userId) {
-      throw Exception('Unauthorized access: User can only access their own habits');
+      throw Exception(
+          'Unauthorized access: User can only access their own habits');
     }
     return _firestore.collection('users').doc(userId).collection('habits');
   }
@@ -116,7 +118,8 @@ class FirebaseService {
   CollectionReference getUserJournal(String userId) {
     // Security check: ensure current user can only access their own data
     if (currentUserId == null || currentUserId != userId) {
-      throw Exception('Unauthorized access: User can only access their own journal');
+      throw Exception(
+          'Unauthorized access: User can only access their own journal');
     }
     return _firestore.collection('users').doc(userId).collection('journal');
   }
@@ -125,7 +128,8 @@ class FirebaseService {
   CollectionReference getUserPomodoroSessions(String userId) {
     // Security check: ensure current user can only access their own data
     if (currentUserId == null || currentUserId != userId) {
-      throw Exception('Unauthorized access: User can only access their own pomodoro sessions');
+      throw Exception(
+          'Unauthorized access: User can only access their own pomodoro sessions');
     }
     return _firestore.collection('users').doc(userId).collection('pomodoros');
   }
@@ -134,7 +138,8 @@ class FirebaseService {
   CollectionReference getUserStreaks(String userId) {
     // Security check: ensure current user can only access their own data
     if (currentUserId == null || currentUserId != userId) {
-      throw Exception('Unauthorized access: User can only access their own streaks');
+      throw Exception(
+          'Unauthorized access: User can only access their own streaks');
     }
     return _firestore.collection('users').doc(userId).collection('streaks');
   }

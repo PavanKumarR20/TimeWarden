@@ -57,7 +57,8 @@ class SecurityService {
 
       return isAuthenticated;
     } on PlatformException catch (e) {
-      LogService.warning('Biometric authentication error', tag: 'SecurityService', error: e);
+      LogService.warning('Biometric authentication error',
+          tag: 'SecurityService', error: e);
       return false;
     }
   }

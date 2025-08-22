@@ -15,22 +15,22 @@ class PerformanceUtils {
     final startTime = _operationStartTimes[operationName];
     if (startTime != null) {
       final duration = DateTime.now().difference(startTime).inMilliseconds;
-      
+
       // Store duration for analysis
       _operationDurations.putIfAbsent(operationName, () => []);
       _operationDurations[operationName]!.add(duration);
-      
+
       // Log performance
       developer.log(
         'Operation $operationName took ${duration}ms',
         name: 'Performance',
       );
-      
+
       // Keep only last 50 measurements to prevent memory leaks
       if (_operationDurations[operationName]!.length > 50) {
         _operationDurations[operationName]!.removeAt(0);
       }
-      
+
       _operationStartTimes.remove(operationName);
     }
   }
@@ -39,7 +39,7 @@ class PerformanceUtils {
   static double? getAverageDuration(String operationName) {
     final durations = _operationDurations[operationName];
     if (durations == null || durations.isEmpty) return null;
-    
+
     final sum = durations.reduce((a, b) => a + b);
     return sum / durations.length;
   }
@@ -69,17 +69,17 @@ class PerformanceUtils {
 
   /// Debounce function calls to improve performance
   static final Map<String, DateTime> _lastCallTimes = {};
-  
+
   static bool shouldExecute(String key, {int debounceMs = 300}) {
     final now = DateTime.now();
     final lastCall = _lastCallTimes[key];
-    
-    if (lastCall == null || 
+
+    if (lastCall == null ||
         now.difference(lastCall).inMilliseconds >= debounceMs) {
       _lastCallTimes[key] = now;
       return true;
     }
-    
+
     return false;
   }
 
@@ -93,18 +93,18 @@ class PerformanceUtils {
   /// Get performance summary
   static Map<String, dynamic> getPerformanceSummary() {
     final summary = <String, dynamic>{};
-    
+
     for (final operation in _operationDurations.keys) {
       final avg = getAverageDuration(operation);
       final count = _operationDurations[operation]!.length;
-      
+
       summary[operation] = {
         'averageDuration': avg,
         'callCount': count,
         'unit': 'ms',
       };
     }
-    
+
     return summary;
   }
 }

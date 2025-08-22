@@ -13,10 +13,12 @@ class HabitRepositoryImpl implements HabitRepository {
   @override
   Future<List<Habit>> getHabits() async {
     final userId = _firebaseService.currentUserId;
-    LogService.debug('Getting habits for user: $userId', tag: 'HabitRepository');
+    LogService.debug('Getting habits for user: $userId',
+        tag: 'HabitRepository');
 
     if (userId == null) {
-      LogService.warning('User not authenticated, returning empty list', tag: 'HabitRepository');
+      LogService.warning('User not authenticated, returning empty list',
+          tag: 'HabitRepository');
       return <Habit>[];
     }
 
@@ -24,39 +26,47 @@ class HabitRepositoryImpl implements HabitRepository {
       final snapshot = await _firebaseService.getUserHabits(userId).get();
 
       LogService.debug(
-          'Received snapshot with ${snapshot.docs.length} documents', tag: 'HabitRepository');
+          'Received snapshot with ${snapshot.docs.length} documents',
+          tag: 'HabitRepository');
 
       if (snapshot.docs.isEmpty) {
-        LogService.debug('No habits found, returning empty list', tag: 'HabitRepository');
+        LogService.debug('No habits found, returning empty list',
+            tag: 'HabitRepository');
         return <Habit>[];
       }
 
       final habits = <Habit>[];
       for (final doc in snapshot.docs) {
         try {
-          LogService.debug('Processing document: ${doc.id}', tag: 'HabitRepository');
+          LogService.debug('Processing document: ${doc.id}',
+              tag: 'HabitRepository');
           final data = doc.data() as Map<String, dynamic>;
           data['id'] = doc.id;
 
           final habit = Habit.fromJson(data);
-          LogService.debug('Successfully parsed habit: ${habit.name}', tag: 'HabitRepository');
+          LogService.debug('Successfully parsed habit: ${habit.name}',
+              tag: 'HabitRepository');
           habits.add(habit);
         } catch (e) {
-          LogService.error('Error parsing habit ${doc.id}', tag: 'HabitRepository', error: e);
+          LogService.error('Error parsing habit ${doc.id}',
+              tag: 'HabitRepository', error: e);
           // Skip this document instead of failing completely
           continue;
         }
       }
 
-      LogService.debug('Returning ${habits.length} habits', tag: 'HabitRepository');
+      LogService.debug('Returning ${habits.length} habits',
+          tag: 'HabitRepository');
       return habits;
     } catch (e) {
-      LogService.error('Error fetching habits', tag: 'HabitRepository', error: e);
+      LogService.error('Error fetching habits',
+          tag: 'HabitRepository', error: e);
       // Return empty list instead of throwing for common errors
       if (e.toString().contains('permission') ||
           e.toString().contains('PERMISSION_DENIED') ||
           e.toString().contains('not found')) {
-        LogService.warning('Returning empty list due to permission error', tag: 'HabitRepository');
+        LogService.warning('Returning empty list due to permission error',
+            tag: 'HabitRepository');
         return <Habit>[];
       }
       rethrow;
@@ -78,11 +88,14 @@ class HabitRepositoryImpl implements HabitRepository {
     }
 
     // Rate limiting for habit creation
-    if (!SecurityUtils.canPerformOperation('create_habit_$userId', cooldownSeconds: 2)) {
-      throw Exception('Too many requests. Please wait before creating another habit.');
+    if (!SecurityUtils.canPerformOperation('create_habit_$userId',
+        cooldownSeconds: 2)) {
+      throw Exception(
+          'Too many requests. Please wait before creating another habit.');
     }
 
-    LogService.debug('Adding habit: ${habit.name} for user: $userId', tag: 'HabitRepository');
+    LogService.debug('Adding habit: ${habit.name} for user: $userId',
+        tag: 'HabitRepository');
 
     final habitData = habit.toJson();
     habitData.remove('id'); // Let Firestore generate the ID
@@ -109,16 +122,21 @@ class HabitRepositoryImpl implements HabitRepository {
     }
 
     // Rate limiting for habit updates
-    if (!SecurityUtils.canPerformOperation('update_habit_$userId', cooldownSeconds: 1)) {
+    if (!SecurityUtils.canPerformOperation('update_habit_$userId',
+        cooldownSeconds: 1)) {
       throw Exception('Too many requests. Please wait before updating again.');
     }
 
-    LogService.debug('Updating habit: ${habit.name} for user: $userId', tag: 'HabitRepository');
+    LogService.debug('Updating habit: ${habit.name} for user: $userId',
+        tag: 'HabitRepository');
 
     final habitData = habit.toJson();
     habitData.remove('id'); // Remove ID before updating
 
-    await _firebaseService.getUserHabits(userId).doc(habit.id).update(habitData);
+    await _firebaseService
+        .getUserHabits(userId)
+        .doc(habit.id)
+        .update(habitData);
   }
 
   @override
