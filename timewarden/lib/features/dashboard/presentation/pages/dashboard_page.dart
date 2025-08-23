@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
 import '../../../habits/domain/entities/habit.dart';
+import '../../../habits/presentation/widgets/habit_streaks_widget.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
@@ -63,9 +64,53 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: const Text('TimeWarden'),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.secondary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.watch_later_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  theme.colorScheme.primary,
+                  theme.colorScheme.secondary,
+                ],
+              ).createShader(bounds),
+              child: Text(
+                'TimeWarden',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  letterSpacing: -0.5,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        backgroundColor: theme.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
@@ -255,6 +300,10 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
               );
             },
           ),
+          const SizedBox(height: 24),
+
+          // Habit Streaks section
+          const HabitStreaksWidget(),
           const SizedBox(height: 24),
 
           // Today's habits section
