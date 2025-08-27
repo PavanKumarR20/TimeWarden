@@ -4,7 +4,6 @@ import '../../../../core/services/log_service.dart';
 import '../../../../core/utils/security_utils.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/repositories/habit_repository.dart';
-import '../../services/habit_streak_service.dart';
 
 class HabitRepositoryImpl implements HabitRepository {
   final FirebaseService _firebaseService;

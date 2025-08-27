@@ -13,7 +13,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/launcher_icon');
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
@@ -136,7 +136,7 @@ class NotificationService {
       channelDescription: 'Reminders for your daily habits',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -179,7 +179,7 @@ class NotificationService {
       channelDescription: 'Daily reminders for your habits',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
     );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -254,7 +254,7 @@ class NotificationService {
       ongoing: true,
       autoCancel: false,
       showWhen: false,
-      icon: '@mipmap/ic_launcher',
+      icon: '@mipmap/launcher_icon',
       progress: progressPercentage,
       maxProgress: 100,
       showProgress: true,

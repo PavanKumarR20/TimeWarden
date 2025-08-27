@@ -57,10 +57,7 @@ class _JournalLockScreenState extends State<JournalLockScreen> {
           _showPinInput = true;
           _isLoading = false;
         });
-        // Auto-focus the PIN input
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _pinFocusNode.requestFocus();
-        });
+        // Don't auto-focus to prevent random keyboard opening
       }
     } catch (e) {
       setState(() {
@@ -91,9 +88,8 @@ class _JournalLockScreenState extends State<JournalLockScreen> {
           _isLoading = false;
           _isAuthenticating = false;
         });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _pinFocusNode.requestFocus();
-        });
+        // Don't auto-focus to prevent random keyboard opening
+        // User can tap to focus when needed
       }
     } catch (e) {
       setState(() {
@@ -140,7 +136,7 @@ class _JournalLockScreenState extends State<JournalLockScreen> {
     setState(() {
       _pinDigits = [false, false, false, false, false, false];
     });
-    _pinFocusNode.requestFocus();
+    // Don't auto-focus to prevent random keyboard opening
   }
 
   void _onPinChanged(String value) {
@@ -228,29 +224,45 @@ class _JournalLockScreenState extends State<JournalLockScreen> {
                 const SizedBox(height: 24),
 
                 // PIN Dots Display
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(6, (index) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _pinDigits[index]
-                            ? colorScheme.primary
-                            : colorScheme.outline.withOpacity(0.3),
-                      ),
-                    );
-                  }),
+                GestureDetector(
+                  onTap: () {
+                    // Only focus when user explicitly taps the PIN area
+                    FocusScope.of(context)
+                        .unfocus(); // Clear any existing focus first
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _pinFocusNode.requestFocus();
+                    });
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(6, (index) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _pinDigits[index]
+                                ? colorScheme.primary
+                                : colorScheme.outline.withOpacity(0.3),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 32),
 
-                // Hidden PIN Input Field
-                Container(
-                  width: 0,
-                  height: 0,
+                // Hidden PIN Input Field (completely hidden and unfocusable)
+                Visibility(
+                  visible: false,
+                  maintainSize: false,
+                  maintainAnimation: false,
+                  maintainState: false,
                   child: TextField(
                     controller: _pinController,
                     focusNode: _pinFocusNode,

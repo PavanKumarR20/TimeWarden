@@ -190,10 +190,11 @@ class SettingsPage extends StatelessWidget {
                       ).createShader(bounds),
                       child: Text(
                         'TimeWarden',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                       ),
                     ),
                     subtitle: const Text('Version 1.0.0'),

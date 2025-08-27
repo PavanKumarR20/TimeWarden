@@ -313,7 +313,8 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
+              spacing: 12,
+              runSpacing: 12,
               children: _availableColors.map((color) {
                 final colorValue =
                     '#${color.value.toRadixString(16).padLeft(8, '0')}';
@@ -353,7 +354,8 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             ),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
+              spacing: 12,
+              runSpacing: 12,
               children: _availableIcons.map((icon) {
                 final isSelected = _selectedIcon == icon;
                 return GestureDetector(

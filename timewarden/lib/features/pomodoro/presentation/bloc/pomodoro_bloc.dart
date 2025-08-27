@@ -8,6 +8,7 @@ import '../../domain/entities/pomodoro_settings.dart';
 import '../../domain/entities/pomodoro_statistics.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/audio_service.dart';
 import 'pomodoro_event.dart';
 import 'pomodoro_state.dart';
 
@@ -18,6 +19,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   final List<PomodoroSession> _sessions = [];
   int _completedWorkSessions = 0;
   final NotificationService _notificationService = NotificationService();
+  final AudioService _audioService = AudioService();
 
   PomodoroBloc() : super(const PomodoroInitial()) {
     on<PomodoroLoadRequested>(_onLoadRequested);
@@ -31,6 +33,19 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     on<PomodoroSkipBreakRequested>(_onSkipBreakRequested);
     on<PomodoroSettingsUpdated>(_onSettingsUpdated);
     on<PomodoroHistoryLoadRequested>(_onHistoryLoadRequested);
+    
+    // Initialize audio service
+    _initializeAudioService();
+  }
+
+  Future<void> _initializeAudioService() async {
+    try {
+      await _audioService.initialize();
+      _audioService.setEnabled(_settings.enableSounds);
+      _audioService.setVolume(_settings.soundVolume);
+    } catch (e) {
+      print('Error initializing audio service: $e');
+    }
   }
 
   // Persistence methods
@@ -113,6 +128,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   @override
   Future<void> close() {
     _timer?.cancel();
+    _audioService.dispose();
     return super.close();
   }
 
@@ -184,6 +200,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         taskDescription: event.taskDescription,
       );
 
+      // Play appropriate start sound
+      if (sessionType == PomodoroType.work) {
+        print('PomodoroBloc: Playing work session start sound');
+        await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
+      } else {
+        print('PomodoroBloc: Playing break session start sound');
+        await _audioService.playPomodoroSound(PomodoroSoundType.breakStart);
+      }
+
       _startTimer();
 
       emit(PomodoroRunning(
@@ -212,6 +237,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     if (_currentSession != null) {
       HapticService.buttonTap();
+      
+      // Play pause sound
+      await _audioService.playPomodoroSound(PomodoroSoundType.sessionPause);
+      
       _timer?.cancel();
 
       _currentSession = _currentSession!.copyWith(
@@ -240,6 +269,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     if (_currentSession != null) {
       HapticService.buttonTap();
+
+      // Play resume sound
+      await _audioService.playPomodoroSound(PomodoroSoundType.sessionResume);
 
       _currentSession = _currentSession!.copyWith(
         status: SessionStatus.active,
@@ -330,6 +362,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         HapticService.successAction();
       }
 
+      // Play completion sound based on session type
+      if (_currentSession!.type == PomodoroType.work) {
+        await _audioService.playPomodoroSound(PomodoroSoundType.sessionComplete);
+      } else if (_currentSession!.type == PomodoroType.longBreak) {
+        await _audioService.playPomodoroSound(PomodoroSoundType.finalBreakComplete);
+      } else {
+        await _audioService.playPomodoroSound(PomodoroSoundType.breakComplete);
+      }
+
       // Show notification
       if (_settings.enableNotifications) {
         NotificationService().scheduleHabitReminder(
@@ -397,6 +438,11 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     _settings = event.settings as PomodoroSettings;
+    
+    // Update audio service settings
+    _audioService.setEnabled(_settings.enableSounds);
+    _audioService.setVolume(_settings.soundVolume);
+    
     // Save settings to storage (implement later)
 
     if (state is PomodoroReady) {

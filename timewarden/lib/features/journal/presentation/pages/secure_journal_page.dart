@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../core/services/security/security_service.dart';
-import 'journal/presentation/pages/journal_page.dart';
-import 'journal/presentation/widgets/journal_lock_screen.dart';
+import '../../../../core/services/security/security_service.dart';
+import 'journal_page.dart';
+import '../widgets/journal_lock_screen.dart';
 
 class SecureJournalPage extends StatefulWidget {
   const SecureJournalPage({super.key});

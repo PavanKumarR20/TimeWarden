@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/entities/habit_filter.dart';
+import '../../../../core/services/habit_streak_service.dart';
 import '../bloc/habits_bloc.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/calendar_habits_view.dart';
-import '../../../../core/services/theme_service.dart';
+import '../widgets/habit_streaks_widget.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/widgets/animations.dart';
 import 'add_edit_habit_page.dart';
@@ -53,18 +53,6 @@ class _HabitsViewState extends State<HabitsView> {
       appBar: AppBar(
         title: const Text('Habits'),
         actions: [
-          IconButton(
-            icon: Icon(
-              Theme.of(context).brightness == Brightness.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
-            ),
-            onPressed: () {
-              HapticService.buttonTap();
-              Provider.of<ThemeService>(context, listen: false).toggleTheme();
-            },
-            tooltip: 'Toggle Theme',
-          ),
           AnimatedScaleButton(
             onTap: () {
               HapticService.buttonTap();
@@ -175,6 +163,47 @@ class _HabitsViewState extends State<HabitsView> {
       key: const ValueKey('list'),
       child: Column(
         children: [
+          // Minimal Overall Streak Display
+          BlocBuilder<HabitsBloc, HabitsState>(
+            builder: (context, state) {
+              if (state is HabitsLoaded) {
+                final activeHabits =
+                    state.habits.where((h) => h.isActive).toList();
+                final combinedStreak =
+                    HabitStreakService.calculateCombinedStreak(activeHabits);
+
+                return Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.whatshot,
+                        size: 16,
+                        color: const Color(0xFFFF6B35),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Overall Streak: $combinedStreak days',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+
           // Filter tabs
           Container(
             width: double.infinity,
@@ -210,6 +239,12 @@ class _HabitsViewState extends State<HabitsView> {
                 ),
               ],
             ),
+          ),
+
+          // Habit Streaks section
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: HabitStreaksWidget(),
           ),
 
           // Habits list
@@ -434,20 +469,6 @@ class _HabitsViewState extends State<HabitsView> {
         child: BlocProvider.value(
           value: habitsBloc,
           child: HabitDetailPage(habit: habit),
-        ),
-      ),
-    );
-  }
-
-  void _navigateToEditHabit(BuildContext context, Habit habit) {
-    // Get the BLoC reference before navigating
-    final habitsBloc = context.read<HabitsBloc>();
-
-    Navigator.of(context).push(
-      CustomPageRoute(
-        child: BlocProvider.value(
-          value: habitsBloc,
-          child: AddEditHabitPage(habit: habit),
         ),
       ),
     );

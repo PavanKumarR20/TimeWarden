@@ -6,6 +6,7 @@ import '../../../../core/widgets/animations.dart';
 import '../bloc/pomodoro_bloc.dart';
 import '../bloc/pomodoro_event.dart';
 import '../bloc/pomodoro_state.dart';
+import 'sound_test_page.dart';
 
 class PomodoroSettingsPage extends StatefulWidget {
   const PomodoroSettingsPage({super.key});
@@ -420,6 +421,28 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
                     );
                   }),
                 ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Test & Customize Sounds Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    HapticService.buttonTap();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SoundTestPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.music_note),
+                  label: const Text('Test & Customize Sounds'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
               ),
             ],
           ],
