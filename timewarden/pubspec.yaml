@@ -73,6 +73,9 @@ dependencies:
   # Animations and haptics
   animations: ^2.0.11
 
+  # Audio for Pomodoro sounds
+  audioplayers: ^6.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

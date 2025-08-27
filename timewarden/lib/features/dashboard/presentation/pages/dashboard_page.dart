@@ -13,7 +13,7 @@ import '../../../journal/presentation/bloc/journal_bloc.dart';
 import '../../../journal/presentation/bloc/journal_event.dart';
 import '../../../journal/presentation/bloc/journal_state.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
-import '../../../secure_journal_page.dart';
+import '../../../journal/presentation/pages/secure_journal_page.dart';
 import '../../../../core/services/quotes_service.dart';
 
 class DashboardPage extends StatefulWidget {
@@ -65,7 +65,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
