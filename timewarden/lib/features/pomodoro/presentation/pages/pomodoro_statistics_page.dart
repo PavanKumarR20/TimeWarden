@@ -19,7 +19,21 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
   @override
   void initState() {
     super.initState();
+    _loadStatistics();
+  }
+
+  void _loadStatistics() {
     context.read<PomodoroBloc>().add(const PomodoroHistoryLoadRequested());
+
+    // Add a timeout fallback
+    Future.delayed(const Duration(seconds: 10), () {
+      if (mounted &&
+          context.read<PomodoroBloc>().state is! PomodoroHistoryLoaded) {
+        // If still loading after 10 seconds, attempt retry
+        print('Statistics loading timeout, attempting to recover...');
+        context.read<PomodoroBloc>().add(const PomodoroHistoryLoadRequested());
+      }
+    });
   }
 
   @override
@@ -30,11 +44,53 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       ),
       body: BlocBuilder<PomodoroBloc, PomodoroState>(
         builder: (context, state) {
-          if (state is! PomodoroHistoryLoaded) {
-            return const Center(child: CircularProgressIndicator());
+          if (state is PomodoroError) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load statistics',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    state.message,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _loadStatistics,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
 
-          return _buildStatisticsView(context, state);
+          if (state is PomodoroHistoryLoaded) {
+            return _buildStatisticsView(context, state);
+          }
+
+          // Loading state
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading statistics...'),
+              ],
+            ),
+          );
         },
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../habits/presentation/pages/habits_page.dart';
@@ -8,6 +9,7 @@ import '../../../habits/presentation/widgets/habit_streaks_widget.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
+import '../../../pomodoro/presentation/bloc/pomodoro_event.dart';
 import '../../../pomodoro/domain/entities/pomodoro_session.dart';
 import '../../../journal/presentation/bloc/journal_bloc.dart';
 import '../../../journal/presentation/bloc/journal_event.dart';
@@ -15,6 +17,7 @@ import '../../../journal/presentation/bloc/journal_state.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../journal/presentation/pages/secure_journal_page.dart';
 import '../../../../core/services/quotes_service.dart';
+import '../../../../core/services/haptic_service.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -66,90 +69,206 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.secondary,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        // Check if there's an active Pomodoro session
+        final pomodoroState = context.read<PomodoroBloc>().state;
+        final bool hasActiveSession =
+            pomodoroState is PomodoroRunning || pomodoroState is PomodoroPaused;
+
+        if (hasActiveSession) {
+          // Show warning dialog for active session
+          final shouldExit =
+              await _showExitWarningDialog(context, pomodoroState);
+          if (shouldExit) {
+            SystemNavigator.pop();
+          }
+        } else {
+          // No active session, allow normal exit
+          SystemNavigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: _selectedIndex == 0
+            ? AppBar(
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.secondary,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.watch_later_outlined,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ShaderMask(
+                      shaderCallback: (bounds) => LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.secondary,
+                        ],
+                      ).createShader(bounds),
+                      child: Text(
+                        'TimeWarden',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 24,
+                          letterSpacing: -0.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.watch_later_outlined,
-                color: Colors.white,
-                size: 20,
-              ),
+                elevation: 0,
+                scrolledUnderElevation: 1,
+                backgroundColor: theme.colorScheme.surface,
+                surfaceTintColor: Colors.transparent,
+              )
+            : null,
+        body: _pages[_selectedIndex],
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            HapticService.lightImpact();
+            setState(() {
+              _selectedIndex = index;
+            });
+            _saveSelectedTab(index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Dashboard',
             ),
-            const SizedBox(width: 12),
-            ShaderMask(
-              shaderCallback: (bounds) => LinearGradient(
-                colors: [
-                  theme.colorScheme.primary,
-                  theme.colorScheme.secondary,
-                ],
-              ).createShader(bounds),
-              child: Text(
-                'TimeWarden',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 24,
-                  letterSpacing: -0.5,
-                  color: Colors.white,
-                ),
-              ),
+            NavigationDestination(
+              icon: Icon(Icons.check_circle_outline),
+              selectedIcon: Icon(Icons.check_circle),
+              label: 'Habits',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.timer_outlined),
+              selectedIcon: Icon(Icons.timer),
+              label: 'Pomodoro',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.book_outlined),
+              selectedIcon: Icon(Icons.book),
+              label: 'Journal',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: 'Settings',
             ),
           ],
         ),
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        backgroundColor: theme.colorScheme.surface,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-          _saveSelectedTab(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle),
-            label: 'Habits',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.timer_outlined),
-            selectedIcon: Icon(Icons.timer),
-            label: 'Pomodoro',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.book_outlined),
-            selectedIcon: Icon(Icons.book),
-            label: 'Journal',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-      ),
-    );
+      ), // Close PopScope child (Scaffold)
+    ); // Close PopScope
+  }
+
+  Future<bool> _showExitWarningDialog(
+      BuildContext context, PomodoroState pomodoroState) async {
+    String sessionType = 'Session';
+    String timeRemaining = '';
+
+    if (pomodoroState is PomodoroRunning) {
+      sessionType = pomodoroState.currentSession.displayType;
+      final remaining = pomodoroState.currentSession.remainingSeconds;
+      final minutes = remaining ~/ 60;
+      final seconds = remaining % 60;
+      timeRemaining =
+          '${minutes}:${seconds.toString().padLeft(2, '0')} remaining';
+    } else if (pomodoroState is PomodoroPaused) {
+      sessionType = pomodoroState.currentSession.displayType;
+      timeRemaining = 'Currently paused';
+    }
+
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              icon: Icon(
+                Icons.timer_outlined,
+                size: 48,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(
+                '$sessionType is Running!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    timeRemaining,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Are you sure you want to close TimeWarden?\n\nYour session will be paused and can be resumed when you return.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'Keep Running',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    // Pause the session if it's running
+                    if (pomodoroState is PomodoroRunning) {
+                      context
+                          .read<PomodoroBloc>()
+                          .add(const PomodoroPauseRequested());
+                    }
+                    Navigator.of(context).pop(true);
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.errorContainer,
+                    foregroundColor:
+                        Theme.of(context).colorScheme.onErrorContainer,
+                  ),
+                  child: const Text(
+                    'Close App',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 }
 
