@@ -90,9 +90,16 @@ class AudioService {
     }
   }
 
-  // Enhanced sound implementations with rich haptic patterns
+  // Enhanced sound implementations with audio files + haptic feedback
   Future<void> _playSessionStartSound() async {
     print('AudioService: Playing session start - Energizing rising pattern 🚀');
+
+    try {
+      // Play audio file
+      await _audioPlayer.play(AssetSource('icons/audio/work_start.mp3'));
+    } catch (e) {
+      print('AudioService: Error playing work_start.mp3: $e');
+    }
 
     // Rising energy pattern: light -> medium -> heavy
     HapticFeedback.lightImpact();
@@ -110,6 +117,13 @@ class AudioService {
 
   Future<void> _playSessionCompleteSound() async {
     print('AudioService: Playing session complete - Success celebration 🎉');
+
+    try {
+      // Play audio file
+      await _audioPlayer.play(AssetSource('icons/audio/work_complete.mp3'));
+    } catch (e) {
+      print('AudioService: Error playing work_complete.mp3: $e');
+    }
 
     // Success pattern: quick celebratory sequence
     HapticFeedback.mediumImpact();
@@ -132,6 +146,13 @@ class AudioService {
     print(
         'AudioService: Playing break start - Gentle descending relaxation 🧘');
 
+    try {
+      // Play audio file
+      await _audioPlayer.play(AssetSource('icons/audio/break_start.mp3'));
+    } catch (e) {
+      print('AudioService: Error playing break_start.mp3: $e');
+    }
+
     // Descending relaxation pattern: heavy -> medium -> light
     HapticFeedback.heavyImpact();
     await Future.delayed(const Duration(milliseconds: 180));
@@ -149,6 +170,13 @@ class AudioService {
   Future<void> _playBreakCompleteSound() async {
     print('AudioService: Playing break complete - Back to work motivation 💪');
 
+    try {
+      // Play audio file
+      await _audioPlayer.play(AssetSource('icons/audio/break_complete.mp3'));
+    } catch (e) {
+      print('AudioService: Error playing break_complete.mp3: $e');
+    }
+
     // Motivation pattern: gentle buildup
     HapticFeedback.lightImpact();
     await Future.delayed(const Duration(milliseconds: 100));
@@ -164,6 +192,13 @@ class AudioService {
 
   Future<void> _playFinalBreakCompleteSound() async {
     print('AudioService: Playing final break complete - Victory fanfare 🏆');
+
+    try {
+      // Play audio file
+      await _audioPlayer.play(AssetSource('icons/audio/session_complete.mp3'));
+    } catch (e) {
+      print('AudioService: Error playing session_complete.mp3: $e');
+    }
 
     // Victory pattern: grand celebration
     HapticFeedback.lightImpact();
@@ -210,7 +245,7 @@ class AudioService {
   }
 
   Future<void> _playTickSound() async {
-    // Simple tick
+    // Simple tick (haptic only)
     HapticFeedback.selectionClick();
   }
 

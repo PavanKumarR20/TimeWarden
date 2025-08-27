@@ -18,7 +18,7 @@ class PomodoroPage extends StatefulWidget {
 }
 
 class _PomodoroPageState extends State<PomodoroPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _progressController;
   late AnimationController _pulseController;
   final TextEditingController _taskController = TextEditingController();
@@ -27,6 +27,7 @@ class _PomodoroPageState extends State<PomodoroPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _progressController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
@@ -35,6 +36,17 @@ class _PomodoroPageState extends State<PomodoroPage>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // When app comes to foreground, sync timer to fix background timing issues
+    if (state == AppLifecycleState.resumed) {
+      print('PomodoroPage: App resumed, syncing timer...');
+      context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
+    }
   }
 
   @override
@@ -48,6 +60,7 @@ class _PomodoroPageState extends State<PomodoroPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressController.dispose();
     _pulseController.dispose();
     _taskController.dispose();
@@ -306,6 +319,11 @@ class _PomodoroPageState extends State<PomodoroPage>
     bool isRunning,
     bool isPaused,
   ) {
+    // Check if current session is a break
+    final bool isBreakSession = currentSession != null &&
+        (currentSession.type == PomodoroType.shortBreak ||
+            currentSession.type == PomodoroType.longBreak);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -319,6 +337,23 @@ class _PomodoroPageState extends State<PomodoroPage>
             backgroundColor: Theme.of(context).colorScheme.errorContainer,
             foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
             child: const Icon(Icons.stop),
+          ),
+          const SizedBox(width: 20),
+        ],
+
+        // Skip Break Button (only when running or paused and in break session)
+        if ((isRunning || isPaused) && isBreakSession) ...[
+          FloatingActionButton(
+            heroTag: 'skip',
+            onPressed: () {
+              HapticService.buttonTap();
+              context
+                  .read<PomodoroBloc>()
+                  .add(const PomodoroSkipBreakRequested());
+            },
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+            child: const Icon(Icons.skip_next),
           ),
           const SizedBox(width: 20),
         ],

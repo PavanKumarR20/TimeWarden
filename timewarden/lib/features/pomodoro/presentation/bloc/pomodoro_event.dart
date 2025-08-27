@@ -70,3 +70,7 @@ class PomodoroHistoryLoadRequested extends PomodoroEvent {
   @override
   List<Object?> get props => [date];
 }
+
+class PomodoroTimeSyncRequested extends PomodoroEvent {
+  const PomodoroTimeSyncRequested();
+}
