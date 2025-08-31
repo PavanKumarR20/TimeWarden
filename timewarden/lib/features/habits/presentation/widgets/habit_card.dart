@@ -19,7 +19,7 @@ class HabitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = habit.isCompletedToday;
+    final isCompleted = habit.isCompletedForCurrentPeriod;
     Color habitColor;
     try {
       habitColor = habit.color != null
@@ -31,12 +31,12 @@ class HabitCard extends StatelessWidget {
     }
 
     return Card(
-      elevation: 2,
+      elevation: 1,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               // Icon and completion status
@@ -51,8 +51,8 @@ class HabitCard extends StatelessWidget {
                       (h) => h.id == habit.id,
                       orElse: () => habit,
                     );
-                    return prevHabit.isCompletedToday !=
-                        currHabit.isCompletedToday;
+                    return prevHabit.isCompletedForCurrentPeriod !=
+                        currHabit.isCompletedForCurrentPeriod;
                   }
                   return false;
                 },
@@ -61,7 +61,8 @@ class HabitCard extends StatelessWidget {
                       ? state.habits.firstWhere((h) => h.id == habit.id,
                           orElse: () => habit)
                       : habit;
-                  final isCurrentlyCompleted = currentHabit.isCompletedToday;
+                  final isCurrentlyCompleted =
+                      currentHabit.isCompletedForCurrentPeriod;
 
                   return AnimatedScaleButton(
                     onTap: () {
@@ -69,25 +70,37 @@ class HabitCard extends StatelessWidget {
                       onToggleCompletion?.call();
                     },
                     child: SizedBox(
-                      width: 48,
-                      height: 48,
+                      width: 40,
+                      height: 40,
                       child: Center(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: isCurrentlyCompleted
-                              ? Icon(
-                                  Icons.check_rounded,
+                              ? Container(
                                   key: ValueKey('completed'),
-                                  color: Colors.green.shade600,
-                                  size: 32,
-                                  weight: 800,
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade600,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.check_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
                                 )
-                              : Icon(
-                                  Icons.close_rounded,
+                              : Container(
                                   key: ValueKey('incomplete'),
-                                  color: Colors.grey.shade600,
-                                  size: 32,
-                                  weight: 800,
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey.shade400,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
                         ),
                       ),
@@ -95,7 +108,7 @@ class HabitCard extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
 
               // Habit details
               Expanded(
@@ -104,29 +117,31 @@ class HabitCard extends StatelessWidget {
                   children: [
                     Text(
                       habit.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             decoration:
                                 isCompleted ? TextDecoration.lineThrough : null,
                             color: isCompleted
                                 ? Theme.of(context).colorScheme.onSurfaceVariant
                                 : null,
+                            fontWeight: FontWeight.w500,
                           ),
                     ),
                     if (habit.description != null &&
                         habit.description!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         habit.description!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurfaceVariant,
+                              fontSize: 12,
                             ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Icon(

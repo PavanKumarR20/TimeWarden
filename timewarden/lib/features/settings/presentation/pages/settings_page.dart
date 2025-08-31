@@ -118,57 +118,11 @@ class SettingsPage extends StatelessWidget {
                     ListTile(
                       leading: const Icon(Icons.lock),
                       title: const Text('Journal Lock'),
-                      subtitle: const Text(
-                          'Secure your journal with PIN or biometric'),
+                      subtitle: const Text('Secure your journal with PIN'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         HapticService.buttonTap();
                         _showJournalLockSettings(context);
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip),
-                      title: const Text('Privacy Policy'),
-                      trailing: const Icon(Icons.open_in_new),
-                      onTap: () {
-                        HapticService.buttonTap();
-                        // Handle privacy policy
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Account Management
-              Text(
-                'Account',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.cloud_sync),
-                      title: const Text('Data Sync'),
-                      subtitle: const Text('Manage data synchronization'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        HapticService.buttonTap();
-                        // Handle data sync settings
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.backup),
-                      title: const Text('Export Data'),
-                      subtitle: const Text('Download your data'),
-                      trailing: const Icon(Icons.download),
-                      onTap: () {
-                        HapticService.buttonTap();
-                        // Handle data export
                       },
                     ),
                   ],
@@ -214,7 +168,13 @@ class SettingsPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Choose Theme'),
+        title: Text(
+          'Choose Theme',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -293,7 +253,7 @@ class SettingsPage extends StatelessWidget {
   void _showJournalLockSettings(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => const JournalLockSetupDialog(),
+      builder: (context) => JournalLockSetupDialog(),
     );
   }
 

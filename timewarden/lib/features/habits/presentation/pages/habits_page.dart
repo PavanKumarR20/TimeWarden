@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/entities/habit_filter.dart';
 import '../../../../core/services/habit_streak_service.dart';
@@ -45,7 +46,25 @@ class HabitsView extends StatefulWidget {
 class _HabitsViewState extends State<HabitsView> {
   HabitFilter _currentFilter = HabitFilter.all;
   bool _isCalendarView = true; // Default to calendar view
-  bool _hideCompletedHabits = false; // Track hide completed setting
+  bool _hideCompletedHabits = true; // Default to hiding completed habits
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHideCompletedSetting();
+  }
+
+  Future<void> _loadHideCompletedSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _hideCompletedHabits = prefs.getBool('hide_completed_habits') ?? true;
+    });
+  }
+
+  Future<void> _saveHideCompletedSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hide_completed_habits', _hideCompletedHabits);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,43 +140,24 @@ class _HabitsViewState extends State<HabitsView> {
   Widget _buildHabitsView(BuildContext context, List<Habit> allHabits) {
     // Filter habits based on hide completed setting
     List<Habit> displayHabits = allHabits;
-    if (_isCalendarView && _hideCompletedHabits) {
-      final today = DateTime.now();
+    if (_hideCompletedHabits) {
       displayHabits = allHabits.where((habit) {
-        // Check if habit is completed today
-        final isCompletedToday = habit.completedDates.any((date) =>
-            date.year == today.year &&
-            date.month == today.month &&
-            date.day == today.day);
-        return !isCompletedToday;
+        // Use the new period-aware completion check
+        return !habit.isCompletedForCurrentPeriod;
       }).toList();
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        );
-      },
-      child: _isCalendarView
-          ? CalendarHabitsView(
-              key: ValueKey(
-                  'calendar_${displayHabits.length}_$_hideCompletedHabits'),
-              habits: displayHabits,
-            )
-          : _buildListView(allHabits),
-    );
+    return _isCalendarView
+        ? CalendarHabitsView(
+            habits: displayHabits,
+          )
+        : _buildListView(displayHabits, allHabits);
   }
 
-  Widget _buildListView(List<Habit> allHabits) {
+  Widget _buildListView(List<Habit> displayHabits, List<Habit> allHabits) {
     // List view with filters
     final filteredHabits =
-        HabitFilterService.filterHabits(allHabits, _currentFilter);
+        HabitFilterService.filterHabits(displayHabits, _currentFilter);
 
     return SlideInAnimation(
       key: const ValueKey('list'),
@@ -407,34 +407,31 @@ class _HabitsViewState extends State<HabitsView> {
 
             const Divider(height: 1),
 
-            // Hide completed option (only show in calendar view)
-            if (_isCalendarView) ...[
-              ListTile(
-                leading: Icon(
-                  _hideCompletedHabits
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                title: Text(
-                  _hideCompletedHabits
-                      ? 'Show Completed Habits'
-                      : 'Hide Completed Habits',
-                ),
-                subtitle: Text(
-                  _hideCompletedHabits
-                      ? 'Show habits completed today'
-                      : 'Hide habits completed today',
-                ),
-                onTap: () {
-                  HapticService.selectionClick();
-                  setState(() {
-                    _hideCompletedHabits = !_hideCompletedHabits;
-                  });
-                  Navigator.pop(context);
-                },
+            // Hide completed option
+            ListTile(
+              leading: Icon(
+                _hideCompletedHabits ? Icons.visibility_off : Icons.visibility,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ],
+              title: Text(
+                _hideCompletedHabits
+                    ? 'Show Completed Habits'
+                    : 'Hide Completed Habits',
+              ),
+              subtitle: Text(
+                _hideCompletedHabits
+                    ? 'Show habits completed in current period'
+                    : 'Hide habits completed in current period',
+              ),
+              onTap: () {
+                HapticService.selectionClick();
+                setState(() {
+                  _hideCompletedHabits = !_hideCompletedHabits;
+                });
+                _saveHideCompletedSetting();
+                Navigator.pop(context);
+              },
+            ),
 
             // Add more options here in the future
             const SizedBox(height: 10),

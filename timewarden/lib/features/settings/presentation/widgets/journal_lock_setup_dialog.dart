@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../core/services/security/security_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/haptic_service.dart';
 
 class JournalLockSetupDialog extends StatefulWidget {
   const JournalLockSetupDialog({super.key});
@@ -10,288 +11,302 @@ class JournalLockSetupDialog extends StatefulWidget {
 }
 
 class _JournalLockSetupDialogState extends State<JournalLockSetupDialog> {
-  final SecurityService _securityService = SecurityService.instance;
-  final TextEditingController _pinController = TextEditingController();
-  final TextEditingController _confirmPinController = TextEditingController();
-
-  bool _useBiometrics = false;
-  bool _hasBiometrics = false;
-  bool _isLoading = false;
-  String? _errorMessage;
-  bool _showPinInput = false;
+  String _pin = '';
+  String _confirmPin = '';
+  bool _isConfirmingPin = false;
+  bool _isJournalLocked = false;
 
   @override
   void initState() {
     super.initState();
-    _checkBiometricAvailability();
+    _loadJournalLockStatus();
   }
 
-  @override
-  void dispose() {
-    _pinController.dispose();
-    _confirmPinController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _checkBiometricAvailability() async {
-    final available = await _securityService.isBiometricAvailable();
+  Future<void> _loadJournalLockStatus() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _hasBiometrics = available;
-      _useBiometrics = available;
-      _showPinInput = !available;
+      _isJournalLocked = prefs.getBool('journal_locked') ?? false;
     });
   }
 
-  Future<void> _saveSettings() async {
+  void _addDigit(String digit) {
+    HapticService.selectionClick();
     setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+      if (_isConfirmingPin) {
+        if (_confirmPin.length < 4) {
+          _confirmPin += digit;
+          if (_confirmPin.length == 4) {
+            _verifyPins();
+          }
+        }
+      } else {
+        if (_pin.length < 4) {
+          _pin += digit;
+          if (_pin.length == 4) {
+            _isConfirmingPin = true;
+          }
+        }
+      }
     });
+  }
 
-    try {
-      if (_useBiometrics && _hasBiometrics) {
-        // Enable biometric authentication
-        await _securityService.setBiometricEnabledForJournal(true);
-      } else if (_showPinInput) {
-        // Validate PIN
-        if (_pinController.text.isEmpty) {
-          setState(() {
-            _errorMessage = 'Please enter a PIN';
-            _isLoading = false;
-          });
-          return;
+  void _removeDigit() {
+    HapticService.selectionClick();
+    setState(() {
+      if (_isConfirmingPin) {
+        if (_confirmPin.isNotEmpty) {
+          _confirmPin = _confirmPin.substring(0, _confirmPin.length - 1);
+        } else {
+          _isConfirmingPin = false;
+          if (_pin.isNotEmpty) {
+            _pin = _pin.substring(0, _pin.length - 1);
+          }
         }
-
-        if (_pinController.text.length != 6) {
-          setState(() {
-            _errorMessage = 'PIN must be 6 digits';
-            _isLoading = false;
-          });
-          return;
+      } else {
+        if (_pin.isNotEmpty) {
+          _pin = _pin.substring(0, _pin.length - 1);
         }
-
-        if (_pinController.text != _confirmPinController.text) {
-          setState(() {
-            _errorMessage = 'PINs do not match';
-            _isLoading = false;
-          });
-          return;
-        }
-
-        // Set PIN
-        await _securityService.setJournalPin(_pinController.text);
       }
+    });
+  }
 
-      // Return success
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
+  Future<void> _verifyPins() async {
+    if (_pin == _confirmPin) {
+      await _savePinAndEnable();
+    } else {
+      // Reset and show error
       setState(() {
-        _errorMessage = 'Setup failed: ${e.toString()}';
-        _isLoading = false;
+        _pin = '';
+        _confirmPin = '';
+        _isConfirmingPin = false;
       });
+      _showErrorMessage('PINs do not match. Please try again.');
     }
+  }
+
+  Future<void> _savePinAndEnable() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('journal_pin', _pin);
+    await prefs.setBool('journal_locked', true);
+
+    HapticService.heavyImpact();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Journal lock enabled successfully!')),
+      );
+    }
+  }
+
+  Future<void> _disableJournalLock() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('journal_pin');
+    await prefs.setBool('journal_locked', false);
+
+    HapticService.mediumImpact();
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Journal lock disabled')),
+      );
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
+    );
+  }
+
+  Widget _buildPinDisplay() {
+    final currentPin = _isConfirmingPin ? _confirmPin : _pin;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(4, (index) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: index < currentPin.length
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildNumberPad() {
+    return Column(
+      children: [
+        for (int row = 0; row < 3; row++)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              for (int col = 1; col <= 3; col++)
+                _buildNumberButton((row * 3 + col).toString()),
+            ],
+          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            const SizedBox(width: 72), // Empty space
+            _buildNumberButton('0'),
+            _buildActionButton(
+              icon: Icons.backspace,
+              onPressed: _removeDigit,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNumberButton(String number) {
+    return GestureDetector(
+      onTap: () => _addDigit(number),
+      child: Container(
+        width: 72,
+        height: 72,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.surface,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            number,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: 72,
+        height: 72,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.surface,
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.onSurface,
+          size: 24,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return AlertDialog(
-      title: const Text('Setup Journal Lock'),
-      content: SingleChildScrollView(
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Choose how you want to protect your journal:',
-              style: theme.textTheme.bodyMedium,
+              'Journal Lock',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 16),
-
-            // Biometric Option
-            if (_hasBiometrics) ...[
-              Card(
-                color: _useBiometrics ? colorScheme.primaryContainer : null,
-                child: ListTile(
-                  leading: Icon(
-                    Icons.fingerprint,
-                    color:
-                        _useBiometrics ? colorScheme.onPrimaryContainer : null,
+            if (_isJournalLocked)
+              Column(
+                children: [
+                  const Icon(
+                    Icons.lock,
+                    size: 48,
+                    color: Colors.green,
                   ),
-                  title: Text(
-                    'Biometric Authentication',
-                    style: TextStyle(
-                      color: _useBiometrics
-                          ? colorScheme.onPrimaryContainer
-                          : null,
-                    ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Journal is currently protected with a PIN',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
                   ),
-                  subtitle: Text(
-                    'Use fingerprint or face unlock',
-                    style: TextStyle(
-                      color: _useBiometrics
-                          ? colorScheme.onPrimaryContainer.withOpacity(0.7)
-                          : null,
-                    ),
-                  ),
-                  trailing: Radio<bool>(
-                    value: true,
-                    groupValue: _useBiometrics,
-                    onChanged: (value) {
-                      setState(() {
-                        _useBiometrics = true;
-                        _showPinInput = false;
-                      });
-                    },
-                  ),
-                  onTap: () {
-                    setState(() {
-                      _useBiometrics = true;
-                      _showPinInput = false;
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // PIN Option
-            Card(
-              color: (!_useBiometrics || _showPinInput)
-                  ? colorScheme.primaryContainer
-                  : null,
-              child: ListTile(
-                leading: Icon(
-                  Icons.pin,
-                  color: (!_useBiometrics || _showPinInput)
-                      ? colorScheme.onPrimaryContainer
-                      : null,
-                ),
-                title: Text(
-                  'PIN Protection',
-                  style: TextStyle(
-                    color: (!_useBiometrics || _showPinInput)
-                        ? colorScheme.onPrimaryContainer
-                        : null,
-                  ),
-                ),
-                subtitle: Text(
-                  'Use a 6-digit PIN',
-                  style: TextStyle(
-                    color: (!_useBiometrics || _showPinInput)
-                        ? colorScheme.onPrimaryContainer.withOpacity(0.7)
-                        : null,
-                  ),
-                ),
-                trailing: Radio<bool>(
-                  value: false,
-                  groupValue: _useBiometrics,
-                  onChanged: _hasBiometrics
-                      ? (value) {
-                          setState(() {
-                            _useBiometrics = false;
-                            _showPinInput = true;
-                          });
-                        }
-                      : null,
-                ),
-                onTap: _hasBiometrics
-                    ? () {
-                        setState(() {
-                          _useBiometrics = false;
-                          _showPinInput = true;
-                        });
-                      }
-                    : null,
-              ),
-            ),
-
-            // PIN Input Fields
-            if (_showPinInput || !_hasBiometrics) ...[
-              const SizedBox(height: 16),
-              TextField(
-                controller: _pinController,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 6,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Enter 6-digit PIN',
-                  border: OutlineInputBorder(),
-                  counterText: '',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _confirmPinController,
-                keyboardType: TextInputType.number,
-                obscureText: true,
-                maxLength: 6,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-                decoration: const InputDecoration(
-                  labelText: 'Confirm PIN',
-                  border: OutlineInputBorder(),
-                  counterText: '',
-                ),
-              ),
-            ],
-
-            // Error Message
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.error_outline,
-                      color: colorScheme.onErrorContainer,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onErrorContainer,
-                        ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _disableJournalLock,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.onError,
                       ),
+                      child: const Text('Disable Journal Lock'),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  const Icon(
+                    Icons.lock_open,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _isConfirmingPin
+                        ? 'Confirm your PIN'
+                        : 'Set a PIN to protect your journal',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  _buildPinDisplay(),
+                  const SizedBox(height: 32),
+                  _buildNumberPad(),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                ],
               ),
-            ],
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _isLoading ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _isLoading ? null : _saveSettings,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Enable'),
-        ),
-      ],
     );
   }
 }

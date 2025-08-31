@@ -116,6 +116,54 @@ class Habit extends Equatable {
         date.day == today.day);
   }
 
+  /// Returns true if the habit is completed for the current period
+  /// (day, week, or month depending on frequency type)
+  bool get isCompletedForCurrentPeriod {
+    final now = DateTime.now();
+
+    switch (frequency.type) {
+      case HabitFrequencyType.daily:
+        return isCompletedToday;
+
+      case HabitFrequencyType.everyNDays:
+        return isCompletedToday;
+
+      case HabitFrequencyType.timesPerWeek:
+        // Check if completed this week
+        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+        final endOfWeek = startOfWeek.add(const Duration(days: 6));
+        final completionsThisWeek = completedDates
+            .where((date) =>
+                date.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
+                date.isBefore(endOfWeek.add(const Duration(days: 1))))
+            .length;
+        return completionsThisWeek >= frequency.target;
+
+      case HabitFrequencyType.timesPerMonth:
+        // Check if completed this month
+        final startOfMonth = DateTime(now.year, now.month, 1);
+        final endOfMonth = DateTime(now.year, now.month + 1, 1)
+            .subtract(const Duration(days: 1));
+        final completionsThisMonth = completedDates
+            .where((date) =>
+                date.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+                date.isBefore(endOfMonth.add(const Duration(days: 1))))
+            .length;
+        return completionsThisMonth >= frequency.target;
+
+      case HabitFrequencyType.timesInPeriod:
+        // Check if completed enough times in the specified period
+        final periodStart =
+            now.subtract(Duration(days: frequency.periodDays ?? 30));
+        final completionsInPeriod = completedDates
+            .where((date) =>
+                date.isAfter(periodStart.subtract(const Duration(days: 1))) &&
+                date.isBefore(now.add(const Duration(days: 1))))
+            .length;
+        return completionsInPeriod >= frequency.target;
+    }
+  }
+
   bool isCompletedOnDate(DateTime date) {
     return completedDates.any((completedDate) =>
         completedDate.year == date.year &&
