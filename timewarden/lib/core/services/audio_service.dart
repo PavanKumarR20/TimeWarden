@@ -25,15 +25,51 @@ class AudioService {
   Future<void> initialize() async {
     print('AudioService: Initializing enhanced audio service');
     try {
+      // Set player mode for background playback
       await _audioPlayer.setReleaseMode(ReleaseMode.stop);
+      print('AudioService: ReleaseMode set to stop');
+
+      // Set audio category for background playback (important for background audio)
+      await _audioPlayer.setPlayerMode(PlayerMode.mediaPlayer);
+      print(
+          'AudioService: PlayerMode set to mediaPlayer for background capability');
+
+      // Set initial volume
       await _audioPlayer.setVolume(_volume);
+      print('AudioService: Volume set to $_volume');
+
+      // Test audio capability by trying to load a small audio asset
+      try {
+        final source = AssetSource('audio/work_start.mp3');
+        print('AudioService: Testing asset path: audio/work_start.mp3');
+        await _audioPlayer.setSource(source);
+        print('AudioService: Test audio file loaded successfully');
+        await _audioPlayer.stop(); // Don't play it, just test loading
+      } catch (e) {
+        print('AudioService: WARNING - Test audio file failed to load: $e');
+        print(
+            'AudioService: This could indicate missing audio files or permission issues');
+
+        // Try alternative path with icons/ prefix (legacy)
+        try {
+          final altSource = AssetSource('icons/audio/work_start.mp3');
+          print(
+              'AudioService: Testing legacy path: icons/audio/work_start.mp3');
+          await _audioPlayer.setSource(altSource);
+          print('AudioService: Legacy path worked!');
+          await _audioPlayer.stop();
+        } catch (e2) {
+          print('AudioService: Legacy path also failed: $e2');
+        }
+      }
+
       print('AudioService: Initialization successful');
     } catch (e) {
       print('AudioService: Initialization failed: $e');
+      print('AudioService: Audio functionality may not work properly');
     }
-  }
+  } // Set volume (0.0 to 1.0)
 
-  // Set volume (0.0 to 1.0)
   void setVolume(double volume) {
     _volume = volume.clamp(0.0, 1.0);
     _audioPlayer.setVolume(_volume);
@@ -58,6 +94,12 @@ class AudioService {
 
     try {
       print('AudioService: Playing enhanced sound for type: $soundType');
+
+      // Add immediate test for session start
+      if (soundType == PomodoroSoundType.sessionStart) {
+        print('AudioService: === TESTING AUDIO PLAYBACK ===');
+        await _testAudioPlayback();
+      }
 
       switch (soundType) {
         case PomodoroSoundType.sessionStart:
@@ -90,56 +132,105 @@ class AudioService {
     }
   }
 
+  // Test audio playback function
+  Future<void> _testAudioPlayback() async {
+    print('AudioService: Testing audio playback...');
+    try {
+      // Test with direct path
+      print('AudioService: Trying AssetSource(audio/work_start.mp3)');
+      await _audioPlayer.play(AssetSource('audio/work_start.mp3'));
+      print('AudioService: SUCCESS - Audio played with audio/ path');
+      return;
+    } catch (e) {
+      print('AudioService: Failed with audio/ path: $e');
+    }
+
+    // Test with legacy icons path
+    try {
+      print('AudioService: Trying AssetSource(icons/audio/work_start.mp3)');
+      await _audioPlayer.play(AssetSource('icons/audio/work_start.mp3'));
+      print(
+          'AudioService: SUCCESS - Audio played with legacy icons/audio/ path');
+      return;
+    } catch (e) {
+      print('AudioService: Failed with legacy icons/audio/ path: $e');
+    }
+
+    print('AudioService: All audio path tests failed');
+  }
+
   // Enhanced sound implementations with audio files + haptic feedback
   Future<void> _playSessionStartSound() async {
     print('AudioService: Playing session start - Energizing rising pattern 🚀');
 
     try {
+      // Stop any currently playing audio first
+      await _audioPlayer.stop();
+
       // Play audio file
-      await _audioPlayer.play(AssetSource('icons/audio/work_start.mp3'));
+      print('AudioService: Attempting to play work_start.mp3');
+      final source = AssetSource('audio/work_start.mp3');
+      await _audioPlayer.play(source);
+      print('AudioService: work_start.mp3 started playing successfully');
     } catch (e) {
       print('AudioService: Error playing work_start.mp3: $e');
+      // Continue with haptic feedback even if audio fails
     }
 
     // Rising energy pattern: light -> medium -> heavy
-    HapticFeedback.lightImpact();
-    await Future.delayed(const Duration(milliseconds: 120));
+    try {
+      HapticFeedback.lightImpact();
+      await Future.delayed(const Duration(milliseconds: 120));
 
-    HapticFeedback.mediumImpact();
-    await Future.delayed(const Duration(milliseconds: 120));
+      HapticFeedback.mediumImpact();
+      await Future.delayed(const Duration(milliseconds: 120));
 
-    HapticFeedback.heavyImpact();
+      HapticFeedback.heavyImpact();
 
-    // Add a finishing touch
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.selectionClick();
+      // Add a finishing touch
+      await Future.delayed(const Duration(milliseconds: 100));
+      HapticFeedback.selectionClick();
+    } catch (e) {
+      print('AudioService: Error with haptic feedback: $e');
+    }
   }
 
   Future<void> _playSessionCompleteSound() async {
     print('AudioService: Playing session complete - Success celebration 🎉');
 
     try {
+      // Stop any currently playing audio first
+      await _audioPlayer.stop();
+
       // Play audio file
-      await _audioPlayer.play(AssetSource('icons/audio/work_complete.mp3'));
+      print('AudioService: Attempting to play work_complete.mp3');
+      final source = AssetSource('audio/work_complete.mp3');
+      await _audioPlayer.play(source);
+      print('AudioService: work_complete.mp3 started playing successfully');
     } catch (e) {
       print('AudioService: Error playing work_complete.mp3: $e');
+      // Continue with haptic feedback even if audio fails
     }
 
     // Success pattern: quick celebratory sequence
-    HapticFeedback.mediumImpact();
-    await Future.delayed(const Duration(milliseconds: 80));
+    try {
+      HapticFeedback.mediumImpact();
+      await Future.delayed(const Duration(milliseconds: 80));
 
-    HapticFeedback.heavyImpact();
-    await Future.delayed(const Duration(milliseconds: 60));
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 60));
 
-    HapticFeedback.lightImpact();
-    await Future.delayed(const Duration(milliseconds: 60));
+      HapticFeedback.lightImpact();
+      await Future.delayed(const Duration(milliseconds: 60));
 
-    HapticFeedback.heavyImpact();
-    await Future.delayed(const Duration(milliseconds: 80));
+      HapticFeedback.heavyImpact();
+      await Future.delayed(const Duration(milliseconds: 80));
 
-    // Final celebration
-    HapticFeedback.mediumImpact();
+      // Final celebration
+      HapticFeedback.mediumImpact();
+    } catch (e) {
+      print('AudioService: Error with haptic feedback: $e');
+    }
   }
 
   Future<void> _playBreakStartSound() async {
@@ -148,7 +239,7 @@ class AudioService {
 
     try {
       // Play audio file
-      await _audioPlayer.play(AssetSource('icons/audio/break_start.mp3'));
+      await _audioPlayer.play(AssetSource('audio/break_start.mp3'));
     } catch (e) {
       print('AudioService: Error playing break_start.mp3: $e');
     }
@@ -172,7 +263,7 @@ class AudioService {
 
     try {
       // Play audio file
-      await _audioPlayer.play(AssetSource('icons/audio/break_complete.mp3'));
+      await _audioPlayer.play(AssetSource('audio/break_complete.mp3'));
     } catch (e) {
       print('AudioService: Error playing break_complete.mp3: $e');
     }
@@ -195,7 +286,7 @@ class AudioService {
 
     try {
       // Play audio file
-      await _audioPlayer.play(AssetSource('icons/audio/session_complete.mp3'));
+      await _audioPlayer.play(AssetSource('audio/session_complete.mp3'));
     } catch (e) {
       print('AudioService: Error playing session_complete.mp3: $e');
     }
@@ -238,10 +329,31 @@ class AudioService {
   Future<void> _playSessionResumeSound() async {
     print('AudioService: Playing session resume - Ready to continue ▶️');
 
-    // Resume pattern: ascending
-    HapticFeedback.lightImpact();
-    await Future.delayed(const Duration(milliseconds: 100));
-    HapticFeedback.mediumImpact();
+    try {
+      // Stop any currently playing audio first
+      await _audioPlayer.stop();
+
+      // Play work start audio for resume (same energizing sound)
+      print('AudioService: Attempting to play work_start.mp3 for resume');
+      final source = AssetSource('audio/work_start.mp3');
+      await _audioPlayer.play(source);
+      print(
+          'AudioService: work_start.mp3 started playing successfully for resume');
+    } catch (e) {
+      print('AudioService: Error playing work_start.mp3 for resume: $e');
+      // Continue with haptic feedback even if audio fails
+    }
+
+    // Resume pattern: ascending haptic feedback
+    try {
+      HapticFeedback.lightImpact();
+      await Future.delayed(const Duration(milliseconds: 100));
+      HapticFeedback.mediumImpact();
+      await Future.delayed(const Duration(milliseconds: 100));
+      HapticFeedback.heavyImpact();
+    } catch (e) {
+      print('AudioService: Error with haptic feedback for resume: $e');
+    }
   }
 
   Future<void> _playTickSound() async {

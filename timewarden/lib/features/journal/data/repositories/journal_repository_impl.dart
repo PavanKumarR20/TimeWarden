@@ -160,8 +160,7 @@ class JournalRepositoryImpl implements JournalRepository {
 
       final searchResults = allEntries.where((entry) {
         final searchTerm = query.toLowerCase();
-        return entry.title.toLowerCase().contains(searchTerm) ||
-            entry.content.toLowerCase().contains(searchTerm) ||
+        return entry.content.toLowerCase().contains(searchTerm) ||
             entry.tags.any((tag) => tag.toLowerCase().contains(searchTerm));
       }).toList();
 
@@ -177,14 +176,14 @@ class JournalRepositoryImpl implements JournalRepository {
   @override
   Future<void> createEntry(JournalEntry entry) async {
     try {
-      LogService.journal('Creating journal entry: ${entry.title}');
+      LogService.journal('Creating journal entry: ${entry.id}');
 
       final data = entry.toJson();
       data.remove('id'); // Remove ID as Firestore will generate it
 
       await _entriesCollection.add(data);
 
-      LogService.journal('Journal entry created successfully: ${entry.title}');
+      LogService.journal('Journal entry created successfully: ${entry.id}');
     } catch (e) {
       LogService.journal('Error creating journal entry', error: e);
       throw Exception('Failed to create journal entry: $e');
@@ -194,14 +193,14 @@ class JournalRepositoryImpl implements JournalRepository {
   @override
   Future<void> updateEntry(JournalEntry entry) async {
     try {
-      LogService.journal('Updating journal entry: ${entry.title}');
+      LogService.journal('Updating journal entry: ${entry.id}');
 
       final data = entry.toJson();
       data.remove('id'); // Remove ID from data
 
       await _entriesCollection.doc(entry.id).update(data);
 
-      LogService.journal('Journal entry updated successfully: ${entry.title}');
+      LogService.journal('Journal entry updated successfully: ${entry.id}');
     } catch (e) {
       LogService.journal('Error updating journal entry', error: e);
       throw Exception('Failed to update journal entry: $e');

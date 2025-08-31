@@ -70,23 +70,23 @@ class HapticService {
   // Specific haptic patterns for different actions
   static Future<void> habitCompleted() async {
     if (kDebugMode) {
-      print('HapticService: Habit completed - triggering medium impact');
+      print('HapticService: Habit completed - triggering heavy impact');
     }
-    await mediumImpact();
+    await heavyImpact();
   }
 
   static Future<void> habitUncompleted() async {
     if (kDebugMode) {
-      print('HapticService: Habit uncompleted - triggering light impact');
+      print('HapticService: Habit uncompleted - triggering medium impact');
     }
-    await lightImpact();
+    await mediumImpact();
   }
 
   static Future<void> buttonTap() async {
     if (kDebugMode) {
-      print('HapticService: Button tap - triggering selection click');
+      print('HapticService: Button tap - triggering medium impact');
     }
-    await selectionClick();
+    await mediumImpact();
   }
 
   static Future<void> successAction() async {
@@ -98,8 +98,40 @@ class HapticService {
 
   static Future<void> errorAction() async {
     if (kDebugMode) {
-      print('HapticService: Error action - triggering vibrate');
+      print('HapticService: Error action - triggering heavy impact');
     }
-    await vibrate();
+    await heavyImpact();
+  }
+
+  // Additional stronger haptic patterns
+  static Future<void> pomodoroStart() async {
+    if (kDebugMode) {
+      print('HapticService: Pomodoro start - triggering heavy impact');
+    }
+    await heavyImpact();
+  }
+
+  static Future<void> pomodoroComplete() async {
+    if (kDebugMode) {
+      print(
+          'HapticService: Pomodoro complete - triggering double heavy impact');
+    }
+    await heavyImpact();
+    await Future.delayed(const Duration(milliseconds: 100));
+    await heavyImpact();
+  }
+
+  static Future<void> timerPause() async {
+    if (kDebugMode) {
+      print('HapticService: Timer pause - triggering medium impact');
+    }
+    await mediumImpact();
+  }
+
+  static Future<void> navigationTap() async {
+    if (kDebugMode) {
+      print('HapticService: Navigation tap - triggering medium impact');
+    }
+    await mediumImpact();
   }
 }

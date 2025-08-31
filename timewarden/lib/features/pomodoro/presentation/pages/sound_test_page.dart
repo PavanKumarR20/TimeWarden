@@ -9,18 +9,24 @@ class SoundTestPage extends StatefulWidget {
   State<SoundTestPage> createState() => _SoundTestPageState();
 }
 
-class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateMixin {
+class _SoundTestPageState extends State<SoundTestPage>
+    with TickerProviderStateMixin {
   final audioService = AudioService();
   final AudioPlayer _testPlayer = AudioPlayer();
   late TabController _tabController;
 
   // Sample online sounds you can try immediately
   final Map<String, String> _sampleSounds = {
-    'Success Bell': 'https://freesound.org/data/previews/316/316776_4939433-lq.mp3',
-    'Gentle Chime': 'https://freesound.org/data/previews/173/173859_2538033-lq.mp3',
-    'Work Bell': 'https://freesound.org/data/previews/243/243749_4486188-lq.mp3',
-    'Break Chime': 'https://freesound.org/data/previews/203/203121_3123451-lq.mp3',
-    'Notification': 'https://freesound.org/data/previews/154/154115_2538033-lq.mp3',
+    'Success Bell':
+        'https://freesound.org/data/previews/316/316776_4939433-lq.mp3',
+    'Gentle Chime':
+        'https://freesound.org/data/previews/173/173859_2538033-lq.mp3',
+    'Work Bell':
+        'https://freesound.org/data/previews/243/243749_4486188-lq.mp3',
+    'Break Chime':
+        'https://freesound.org/data/previews/203/203121_3123451-lq.mp3',
+    'Notification':
+        'https://freesound.org/data/previews/154/154115_2538033-lq.mp3',
   };
 
   @override
@@ -74,7 +80,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          
           Expanded(
             child: ListView(
               children: [
@@ -82,37 +87,37 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                   context: context,
                   title: '🎯 Session Start',
                   subtitle: 'Energizing start sound',
-                  onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.sessionStart),
+                  onPressed: () => audioService
+                      .playPomodoroSound(PomodoroSoundType.sessionStart),
                 ),
-                
                 _buildSoundButton(
                   context: context,
                   title: '✅ Session Complete',
                   subtitle: 'Success celebration',
-                  onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.sessionComplete),
+                  onPressed: () => audioService
+                      .playPomodoroSound(PomodoroSoundType.sessionComplete),
                 ),
-                
                 _buildSoundButton(
                   context: context,
                   title: '🧘 Break Start',
                   subtitle: 'Relaxing break sound',
-                  onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.breakStart),
+                  onPressed: () => audioService
+                      .playPomodoroSound(PomodoroSoundType.breakStart),
                 ),
-                
                 _buildSoundButton(
                   context: context,
                   title: '💪 Break Complete',
                   subtitle: 'Back to work motivation',
-                  onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.breakComplete),
+                  onPressed: () => audioService
+                      .playPomodoroSound(PomodoroSoundType.breakComplete),
                 ),
-                
                 _buildSoundButton(
                   context: context,
                   title: '🎉 Final Complete',
                   subtitle: 'Victory fanfare',
-                  onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.finalBreakComplete),
+                  onPressed: () => audioService
+                      .playPomodoroSound(PomodoroSoundType.finalBreakComplete),
                 ),
-                
                 Row(
                   children: [
                     Expanded(
@@ -120,7 +125,8 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                         context: context,
                         title: '⏸️ Pause',
                         subtitle: 'Gentle pause',
-                        onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.sessionPause),
+                        onPressed: () => audioService
+                            .playPomodoroSound(PomodoroSoundType.sessionPause),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -129,7 +135,8 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                         context: context,
                         title: '▶️ Resume',
                         subtitle: 'Ready to continue',
-                        onPressed: () => audioService.playPomodoroSound(PomodoroSoundType.sessionResume),
+                        onPressed: () => audioService
+                            .playPomodoroSound(PomodoroSoundType.sessionResume),
                       ),
                     ),
                   ],
@@ -156,12 +163,11 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
           Text(
             'These are actual sound files from freesound.org:',
             style: TextStyle(
-              fontSize: 14, 
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)
-            ),
+                fontSize: 14,
+                color:
+                    Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
           ),
           const SizedBox(height: 16),
-          
           Expanded(
             child: ListView.builder(
               itemCount: _sampleSounds.length,
@@ -170,11 +176,10 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                 return Card(
                   margin: const EdgeInsets.symmetric(vertical: 4),
                   child: ListTile(
-                    leading: const Icon(Icons.play_circle_fill, size: 36, color: Colors.blue),
-                    title: Text(
-                      entry.key, 
-                      style: const TextStyle(fontWeight: FontWeight.w600)
-                    ),
+                    leading: const Icon(Icons.play_circle_fill,
+                        size: 36, color: Colors.blue),
+                    title: Text(entry.key,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: const Text('Tap to hear this sound'),
                     trailing: const Icon(Icons.volume_up),
                     onTap: () => _playSampleSound(entry.value, entry.key),
@@ -183,13 +188,11 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
               },
             ),
           ),
-          
           const SizedBox(height: 16),
-          
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Column(
@@ -222,7 +225,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          
           Expanded(
             child: ListView(
               children: [
@@ -234,7 +236,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                   searchTerms: 'notification, bell, chime, success',
                   icon: Icons.library_music,
                 ),
-                
                 _buildSourceCard(
                   title: '🎬 Zapsplat.com',
                   description: 'Professional quality sounds',
@@ -243,7 +244,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                   searchTerms: 'UI sounds, notification, bell',
                   icon: Icons.movie,
                 ),
-                
                 _buildSourceCard(
                   title: '📺 BBC Sound Effects',
                   description: 'BBC\'s sound archive - completely free',
@@ -252,7 +252,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
                   searchTerms: 'bells, chimes, electronic',
                   icon: Icons.radio,
                 ),
-                
                 _buildSourceCard(
                   title: '🎵 Pixabay',
                   description: 'Free sounds, no attribution needed',
@@ -264,9 +263,7 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
               ],
             ),
           ),
-          
           const SizedBox(height: 16),
-          
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -320,13 +317,17 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
           children: [
             Text(description),
             const SizedBox(height: 4),
-            Text('Search: $searchTerms', style: const TextStyle(fontStyle: FontStyle.italic)),
-            Text('License: $license', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+            Text('Search: $searchTerms',
+                style: const TextStyle(fontStyle: FontStyle.italic)),
+            Text('License: $license',
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
             Text(url, style: const TextStyle(color: Colors.blue, fontSize: 12)),
           ],
         ),
         trailing: const Icon(Icons.open_in_new),
-        onTap: () => _showSourceDetails(context, title, description, url, license, searchTerms),
+        onTap: () => _showSourceDetails(
+            context, title, description, url, license, searchTerms),
       ),
     );
   }
@@ -371,7 +372,7 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
     try {
       print('🔊 Playing sample: $name');
       await _testPlayer.play(UrlSource(url));
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -393,7 +394,8 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
     }
   }
 
-  void _showSourceDetails(BuildContext context, String title, String description, String url, String license, String searchTerms) {
+  void _showSourceDetails(BuildContext context, String title,
+      String description, String url, String license, String searchTerms) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -404,7 +406,8 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
           children: [
             Text(description),
             const SizedBox(height: 12),
-            Text('Website: $url', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('Website: $url',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text('License: $license'),
             const SizedBox(height: 8),
@@ -440,7 +443,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
               Text('• Download 5-6 different .mp3/.wav files'),
               Text('• Keep files under 3 seconds each'),
               SizedBox(height: 16),
-              
               Text(
                 'Step 2: Organize 📁',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -453,7 +455,6 @@ class _SoundTestPageState extends State<SoundTestPage> with TickerProviderStateM
               Text('  - break_complete.mp3 (motivating)'),
               Text('  - session_complete.mp3 (celebration)'),
               SizedBox(height: 16),
-              
               Text(
                 'Step 3: Integration 🛠️',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),

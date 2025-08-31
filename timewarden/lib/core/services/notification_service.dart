@@ -60,6 +60,21 @@ class NotificationService {
 
         await androidImplementation.createNotificationChannel(pomodoroChannel);
 
+        // Create session alerts channel for session completion sounds
+        const sessionAlertsChannel = AndroidNotificationChannel(
+          'session_alerts',
+          'Session Alerts',
+          description: 'Session completion and break notifications with sound',
+          importance: Importance.high,
+          enableVibration: true,
+          enableLights: true,
+          showBadge: true,
+          playSound: true,
+        );
+
+        await androidImplementation
+            .createNotificationChannel(sessionAlertsChannel);
+
         // Create habit reminders channel
         const habitChannel = AndroidNotificationChannel(
           'habit_reminders',
@@ -301,5 +316,65 @@ class NotificationService {
 
   Future<void> cancelPomodoroNotification() async {
     await _flutterLocalNotificationsPlugin.cancel(_pomodoroNotificationId);
+  }
+
+  /// Show session completion notification with sound for background alerts
+  Future<void> showSessionCompletionNotification({
+    required String sessionType,
+    required String message,
+    String? nextSessionType,
+  }) async {
+    debugPrint('NotificationService: Showing session completion notification');
+    debugPrint('NotificationService: Type: $sessionType, Message: $message');
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'session_alerts',
+      'Session Alerts',
+      channelDescription:
+          'Session completion and break notifications with sound',
+      importance: Importance.high,
+      priority: Priority.high,
+      enableVibration: true,
+      enableLights: true,
+      playSound: true,
+      icon: '@mipmap/launcher_icon',
+      autoCancel: true,
+      fullScreenIntent: false,
+    );
+
+    const DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+      categoryIdentifier: 'session_completion',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidDetails,
+      iOS: iOSDetails,
+    );
+
+    final title = sessionType == 'Work'
+        ? '✅ Work Session Complete!'
+        : sessionType == 'Break'
+            ? '☕ Break Time Over!'
+            : '🎉 Session Complete!';
+
+    final body =
+        nextSessionType != null ? '$message\nNext: $nextSessionType' : message;
+
+    debugPrint(
+        'NotificationService: Session completion - Title: $title, Body: $body');
+
+    await _flutterLocalNotificationsPlugin.show(
+      999, // Different ID for session completion notifications
+      title,
+      body,
+      platformChannelSpecifics,
+    );
+
+    debugPrint('NotificationService: Session completion notification shown');
   }
 }

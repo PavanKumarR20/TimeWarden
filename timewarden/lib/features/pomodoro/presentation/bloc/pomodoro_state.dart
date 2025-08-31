@@ -38,12 +38,18 @@ class PomodoroRunning extends PomodoroState {
   final PomodoroSettings settings;
   final int completedWorkSessions;
   final bool isLongBreakNext;
+  final PomodoroStatistics? todayStats;
+  final List<PomodoroStatistics>? weeklyStats;
+  final List<PomodoroSession>? sessions;
 
   const PomodoroRunning({
     required this.currentSession,
     required this.settings,
     this.completedWorkSessions = 0,
     this.isLongBreakNext = false,
+    this.todayStats,
+    this.weeklyStats,
+    this.sessions,
   });
 
   @override
@@ -52,6 +58,9 @@ class PomodoroRunning extends PomodoroState {
         settings,
         completedWorkSessions,
         isLongBreakNext,
+        todayStats,
+        weeklyStats,
+        sessions,
       ];
 }
 
@@ -60,12 +69,18 @@ class PomodoroPaused extends PomodoroState {
   final PomodoroSettings settings;
   final int completedWorkSessions;
   final bool isLongBreakNext;
+  final PomodoroStatistics? todayStats;
+  final List<PomodoroStatistics>? weeklyStats;
+  final List<PomodoroSession>? sessions;
 
   const PomodoroPaused({
     required this.currentSession,
     required this.settings,
     this.completedWorkSessions = 0,
     this.isLongBreakNext = false,
+    this.todayStats,
+    this.weeklyStats,
+    this.sessions,
   });
 
   @override
@@ -74,6 +89,9 @@ class PomodoroPaused extends PomodoroState {
         settings,
         completedWorkSessions,
         isLongBreakNext,
+        todayStats,
+        weeklyStats,
+        sessions,
       ];
 }
 
