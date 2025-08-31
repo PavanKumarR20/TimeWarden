@@ -21,31 +21,26 @@ class CalendarHabitsView extends StatelessWidget {
     final days =
         List.generate(5, (index) => today.subtract(Duration(days: 4 - index)));
 
-    return SlideInAnimation(
-      child: Column(
-        children: [
-          // Header with days
-          _buildDaysHeader(days),
-          const Divider(height: 1),
+    return Column(
+      children: [
+        // Header with days
+        _buildDaysHeader(days),
+        const Divider(height: 1),
 
-          // Habits list
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: habits.length,
-              separatorBuilder: (context, index) =>
-                  const Divider(height: 1, indent: 16),
-              itemBuilder: (context, index) {
-                final habit = habits[index];
-                return FadeInAnimation(
-                  delay: Duration(milliseconds: index * 100),
-                  child: _buildHabitRow(context, habit, days),
-                );
-              },
-            ),
+        // Habits list
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: habits.length,
+            separatorBuilder: (context, index) =>
+                const Divider(height: 1, indent: 16),
+            itemBuilder: (context, index) {
+              final habit = habits[index];
+              return _buildHabitRow(context, habit, days);
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

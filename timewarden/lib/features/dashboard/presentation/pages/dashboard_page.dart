@@ -600,6 +600,14 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
     Color color,
   ) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -613,7 +621,8 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   child: Text(
                     title,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
                         ),
                     overflow: TextOverflow.ellipsis,
                   ),

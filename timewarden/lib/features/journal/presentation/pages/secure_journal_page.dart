@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/services/security/security_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'journal_page.dart';
 import '../widgets/journal_lock_screen.dart';
 
@@ -12,7 +12,6 @@ class SecureJournalPage extends StatefulWidget {
 
 class _SecureJournalPageState extends State<SecureJournalPage>
     with WidgetsBindingObserver {
-  final SecurityService _securityService = SecurityService.instance;
   bool _isUnlocked = false;
   bool _isLoading = true;
 
@@ -52,7 +51,8 @@ class _SecureJournalPageState extends State<SecureJournalPage>
     });
 
     try {
-      final isLockEnabled = await _securityService.isJournalLockEnabled();
+      final prefs = await SharedPreferences.getInstance();
+      final isLockEnabled = prefs.getBool('journal_locked') ?? false;
 
       if (!isLockEnabled) {
         setState(() {
@@ -62,11 +62,25 @@ class _SecureJournalPageState extends State<SecureJournalPage>
         return;
       }
 
-      final isUnlocked = await _securityService.isJournalUnlocked();
-      setState(() {
-        _isUnlocked = isUnlocked;
-        _isLoading = false;
-      });
+      // Check if still unlocked (within auto-lock duration)
+      final unlockedTimestamp = prefs.getInt('journal_unlocked_timestamp');
+      if (unlockedTimestamp != null) {
+        final unlockedTime =
+            DateTime.fromMillisecondsSinceEpoch(unlockedTimestamp);
+        final now = DateTime.now();
+        const autoLockDuration = Duration(minutes: 5);
+
+        final isUnlocked = now.difference(unlockedTime) < autoLockDuration;
+        setState(() {
+          _isUnlocked = isUnlocked;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isUnlocked = false;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _isUnlocked = false;
@@ -77,7 +91,8 @@ class _SecureJournalPageState extends State<SecureJournalPage>
 
   Future<void> _lockJournal() async {
     try {
-      await _securityService.lockJournal();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('journal_unlocked_timestamp');
       setState(() {
         _isUnlocked = false;
       });
