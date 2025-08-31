@@ -117,30 +117,30 @@ class QuotesService {
       author: "James Clear",
     ),
 
-    // Movies & TV Shows
+    // Movies & Inspiration
     const Quote(
       text: "Do or do not, there is no try.",
       author: "Yoda, Star Wars",
     ),
     const Quote(
-      text: "The hardest choices require the strongest wills.",
-      author: "Thanos, Avengers",
-    ),
-    const Quote(
-      text:
-          "It is not our abilities that show what we truly are, it is our choices.",
-      author: "Dumbledore, Harry Potter",
-    ),
-    const Quote(
-      text: "With great power comes great responsibility.",
-      author: "Uncle Ben, Spider-Man",
-    ),
-    const Quote(
       text: "Yesterday is history, tomorrow is a mystery, but today is a gift.",
       author: "Master Oogway, Kung Fu Panda",
     ),
+    const Quote(
+      text: "It's not who I am underneath, but what I do that defines me.",
+      author: "Batman",
+    ),
+    const Quote(
+      text: "The way to get started is to quit talking and begin doing.",
+      author: "Walt Disney",
+    ),
+    const Quote(
+      text:
+          "All we have to decide is what to do with the time that is given us.",
+      author: "Gandalf, Lord of the Rings",
+    ),
 
-    // Anime & Manga
+    // Anime & Manga Wisdom
     const Quote(
       text: "If you don't take risks, you can't create a future.",
       author: "Monkey D. Luffy, One Piece",
@@ -151,11 +151,6 @@ class QuotesService {
       author: "Natsu Dragneel, Fairy Tail",
     ),
     const Quote(
-      text:
-          "It's not the face that makes someone a monster, it's the choices they make with their lives.",
-      author: "Naruto Uzumaki, Naruto",
-    ),
-    const Quote(
       text: "Hard work is what makes your dreams come true.",
       author: "Rock Lee, Naruto",
     ),
@@ -164,52 +159,59 @@ class QuotesService {
           "A lesson without pain is meaningless. For you cannot gain anything without sacrificing something else in return.",
       author: "Edward Elric, Fullmetal Alchemist",
     ),
-
-    // Books & Literature
     const Quote(
       text:
-          "It is our choices that show what we truly are, far more than our abilities.",
-      author: "J.K. Rowling, Harry Potter",
-    ),
-    const Quote(
-      text: "You have been my friend. That in itself is a tremendous thing.",
-      author: "E.B. White, Charlotte's Web",
-    ),
-    const Quote(
-      text: "The only impossible journey is the one you never begin.",
-      author: "Tony Robbins",
-    ),
-    const Quote(
-      text:
-          "Don't be afraid of your fears. They're not there to scare you. They're there to let you know that something is worth it.",
-      author: "C. JoyBell C.",
-    ),
-    const Quote(
-      text:
-          "You are never too old to set another goal or to dream a new dream.",
-      author: "C.S. Lewis",
+          "It's not the face that makes someone a monster, it's the choices they make with their lives.",
+      author: "Naruto Uzumaki, Naruto",
     ),
 
-    // Gaming & Tech Culture
+    // Time Management & Focus
     const Quote(
-      text: "A man chooses, a slave obeys.",
-      author: "Andrew Ryan, BioShock",
+      text:
+          "Time is the most valuable thing we have, because it is the most irrevocable.",
+      author: "Dietrich Bonhoeffer",
     ),
     const Quote(
-      text: "The numbers, Mason, what do they mean?",
-      author: "Viktor Reznov, Call of Duty",
+      text: "The key to productivity is to focus on one thing at a time.",
+      author: "Brian Tracy",
     ),
     const Quote(
-      text: "War never changes.",
-      author: "Fallout Series",
+      text: "Until we can manage time, we can manage nothing else.",
+      author: "Peter Drucker",
     ),
     const Quote(
-      text: "Would you kindly?",
-      author: "Atlas, BioShock",
+      text:
+          "Efficiency is doing things right; effectiveness is doing the right things.",
+      author: "Peter Drucker",
     ),
     const Quote(
-      text: "Stay determined.",
-      author: "Undertale",
+      text:
+          "The successful warrior is the average person with laser-like focus.",
+      author: "Bruce Lee",
+    ),
+
+    // Productivity & Achievement
+    const Quote(
+      text:
+          "Productivity is never an accident. It is always the result of a commitment to excellence.",
+      author: "Paul J. Meyer",
+    ),
+    const Quote(
+      text: "The most productive people are those who ask the right questions.",
+      author: "Tim Ferriss",
+    ),
+    const Quote(
+      text: "What gets measured gets managed.",
+      author: "Peter Drucker",
+    ),
+    const Quote(
+      text:
+          "Don't confuse activity with productivity. Many people are simply busy being busy.",
+      author: "Robin Sharma",
+    ),
+    const Quote(
+      text: "The way we spend our time defines who we are.",
+      author: "Jonathan Estrin",
     ),
 
     // Modern Motivational
@@ -271,9 +273,9 @@ class QuotesService {
         return _quotes.skip(25).take(5).toList(); // 25-29
       case QuoteTheme.anime:
         return _quotes.skip(30).take(5).toList(); // 30-34
-      case QuoteTheme.books:
+      case QuoteTheme.timeManagement:
         return _quotes.skip(35).take(5).toList(); // 35-39
-      case QuoteTheme.gaming:
+      case QuoteTheme.achievement:
         return _quotes.skip(40).take(5).toList(); // 40-44
       case QuoteTheme.modern:
         return _quotes.skip(45).take(5).toList(); // 45-49
@@ -302,7 +304,7 @@ enum QuoteTheme {
   habits,
   movies,
   anime,
-  books,
-  gaming,
+  timeManagement,
+  achievement,
   modern,
 }

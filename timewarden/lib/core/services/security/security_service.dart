@@ -20,13 +20,23 @@ class SecurityService {
   static SecurityService get instance => _instance ??= SecurityService._();
   SecurityService._();
 
-  // Check if device supports biometric authentication
+  // Check if biometric authentication is available
   Future<bool> isBiometricAvailable() async {
     try {
       final isAvailable = await _localAuth.canCheckBiometrics;
       final isDeviceSupported = await _localAuth.isDeviceSupported();
-      return isAvailable && isDeviceSupported;
+
+      if (!isAvailable || !isDeviceSupported) {
+        return false;
+      }
+
+      // Check if biometric sensors are enrolled
+      final availableBiometrics = await _localAuth.getAvailableBiometrics();
+
+      return availableBiometrics.isNotEmpty;
     } catch (e) {
+      LogService.warning('Error checking biometric availability',
+          tag: 'SecurityService', error: e);
       return false;
     }
   }
@@ -43,10 +53,18 @@ class SecurityService {
   // Authenticate with biometrics
   Future<bool> authenticateWithBiometrics() async {
     try {
+      // First check if biometric auth is available
+      final isAvailable = await isBiometricAvailable();
+      if (!isAvailable) {
+        LogService.warning('Biometric authentication not available',
+            tag: 'SecurityService');
+        return false;
+      }
+
       final isAuthenticated = await _localAuth.authenticate(
-        localizedReason: 'Unlock your journal',
+        localizedReason: 'Unlock your journal with fingerprint or face unlock',
         options: const AuthenticationOptions(
-          biometricOnly: true,
+          biometricOnly: false, // Allow PIN fallback
           stickyAuth: true,
         ),
       );
@@ -57,7 +75,33 @@ class SecurityService {
 
       return isAuthenticated;
     } on PlatformException catch (e) {
-      LogService.warning('Biometric authentication error',
+      String errorMessage = 'Unknown biometric error';
+
+      switch (e.code) {
+        case 'NotAvailable':
+          errorMessage = 'Biometric authentication not available';
+          break;
+        case 'NotEnrolled':
+          errorMessage = 'No biometric credentials enrolled';
+          break;
+        case 'LockedOut':
+          errorMessage = 'Biometric authentication locked out';
+          break;
+        case 'PermanentlyLockedOut':
+          errorMessage = 'Biometric authentication permanently locked out';
+          break;
+        case 'UserCancel':
+          errorMessage = 'User cancelled biometric authentication';
+          break;
+        default:
+          errorMessage = e.message ?? 'Biometric authentication failed';
+      }
+
+      LogService.warning('Biometric authentication error: $errorMessage',
+          tag: 'SecurityService', error: e);
+      return false;
+    } catch (e) {
+      LogService.warning('Unexpected biometric authentication error',
           tag: 'SecurityService', error: e);
       return false;
     }

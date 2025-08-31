@@ -143,7 +143,7 @@ class _DashboardPageState extends State<DashboardPage> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) {
-            HapticService.lightImpact();
+            HapticService.navigationTap();
             setState(() {
               _selectedIndex = index;
             });

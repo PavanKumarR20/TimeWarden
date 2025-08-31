@@ -185,7 +185,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     try {
-      HapticService.buttonTap();
+      HapticService.pomodoroStart();
       print(
           'PomodoroBloc: Starting new session, notifications enabled: ${_settings.enableNotifications}');
 
@@ -237,7 +237,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     if (_currentSession != null) {
-      HapticService.buttonTap();
+      HapticService.timerPause();
 
       // Play pause sound
       await _audioService.playPomodoroSound(PomodoroSoundType.sessionPause);
@@ -360,7 +360,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     if (_currentSession != null) {
       // Provide completion feedback
       if (_settings.enableVibration) {
-        HapticService.successAction();
+        HapticService.pomodoroComplete();
       }
 
       // Play completion sound based on session type
@@ -374,15 +374,30 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         await _audioService.playPomodoroSound(PomodoroSoundType.breakComplete);
       }
 
-      // Show notification
+      // Show completion notification with sound for background alerts
       if (_settings.enableNotifications) {
-        NotificationService().scheduleHabitReminder(
-          habitId: _currentSession!.id,
-          habitName: '${_currentSession!.displayType} Complete!',
-          scheduledTime: DateTime.now(),
-          description: _currentSession!.type == PomodoroType.work
-              ? 'Great job! Time for a break.'
-              : 'Break time is over. Ready to focus?',
+        final sessionTypeName = _currentSession!.type == PomodoroType.work
+            ? 'Work'
+            : _currentSession!.type == PomodoroType.longBreak
+                ? 'Long Break'
+                : 'Break';
+
+        final message = _currentSession!.type == PomodoroType.work
+            ? 'Great job! Time for a break.'
+            : 'Break time is over. Ready to focus?';
+
+        // Determine next session type
+        final nextSessionType = _currentSession!.type == PomodoroType.work
+            ? (_completedWorkSessions % _settings.sessionsUntilLongBreak ==
+                    _settings.sessionsUntilLongBreak - 1
+                ? 'Long Break'
+                : 'Short Break')
+            : 'Work Session';
+
+        await _notificationService.showSessionCompletionNotification(
+          sessionType: sessionTypeName,
+          message: message,
+          nextSessionType: nextSessionType,
         );
       }
 
@@ -529,13 +544,42 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       }
       print('Weekly stats calculated: ${weeklyStats.length} days');
 
-      emit(PomodoroHistoryLoaded(
-        sessions: _sessions,
-        todayStats: todayStats,
-        weeklyStats: weeklyStats,
-        settings: _settings,
-      ));
-      print('PomodoroHistoryLoaded state emitted');
+      // If currently running or paused, update the current state with statistics data
+      // instead of replacing it with PomodoroHistoryLoaded
+      if (state is PomodoroRunning) {
+        final currentState = state as PomodoroRunning;
+        emit(PomodoroRunning(
+          currentSession: currentState.currentSession,
+          settings: currentState.settings,
+          completedWorkSessions: currentState.completedWorkSessions,
+          isLongBreakNext: currentState.isLongBreakNext,
+          todayStats: todayStats,
+          weeklyStats: weeklyStats,
+          sessions: _sessions,
+        ));
+        print('Updated PomodoroRunning state with statistics');
+      } else if (state is PomodoroPaused) {
+        final currentState = state as PomodoroPaused;
+        emit(PomodoroPaused(
+          currentSession: currentState.currentSession,
+          settings: currentState.settings,
+          completedWorkSessions: currentState.completedWorkSessions,
+          isLongBreakNext: currentState.isLongBreakNext,
+          todayStats: todayStats,
+          weeklyStats: weeklyStats,
+          sessions: _sessions,
+        ));
+        print('Updated PomodoroPaused state with statistics');
+      } else {
+        // For other states, emit the normal PomodoroHistoryLoaded state
+        emit(PomodoroHistoryLoaded(
+          sessions: _sessions,
+          todayStats: todayStats,
+          weeklyStats: weeklyStats,
+          settings: _settings,
+        ));
+        print('PomodoroHistoryLoaded state emitted');
+      }
     } catch (e, stackTrace) {
       print('Error loading history: $e');
       print('Stack trace: $stackTrace');

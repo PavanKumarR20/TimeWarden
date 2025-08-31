@@ -8,7 +8,7 @@ import '../widgets/journal_entry_card.dart';
 import '../widgets/journal_search_bar.dart';
 import '../widgets/journal_filter_chips.dart';
 import '../../../../core/services/haptic_service.dart';
-import 'add_edit_journal_entry_page.dart';
+import 'simple_daily_journal_page.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key});
@@ -159,7 +159,7 @@ class _JournalPageState extends State<JournalPage> {
             MaterialPageRoute(
               builder: (context) => BlocProvider.value(
                 value: _journalBloc,
-                child: AddEditJournalEntryPage(),
+                child: SimpleDailyJournalPage(),
               ),
             ),
           );
@@ -278,7 +278,7 @@ class _JournalPageState extends State<JournalPage> {
       MaterialPageRoute(
         builder: (context) => BlocProvider.value(
           value: _journalBloc,
-          child: AddEditJournalEntryPage(entry: entry),
+          child: SimpleDailyJournalPage(entry: entry),
         ),
       ),
     );
@@ -295,7 +295,8 @@ class _JournalPageState extends State<JournalPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Entry'),
-        content: Text('Are you sure you want to delete "${entry.title}"?'),
+        content: Text(
+            'Are you sure you want to delete this journal entry from ${entry.dateString}?'),
         actions: [
           TextButton(
             onPressed: () {

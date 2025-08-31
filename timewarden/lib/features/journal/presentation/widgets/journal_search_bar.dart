@@ -41,8 +41,10 @@ class _JournalSearchBarState extends State<JournalSearchBar> {
           borderRadius: BorderRadius.circular(25),
         ),
         filled: true,
-        fillColor:
-            Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        fillColor: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withOpacity(0.3),
       ),
       onChanged: (value) {
         if (value.isEmpty) {

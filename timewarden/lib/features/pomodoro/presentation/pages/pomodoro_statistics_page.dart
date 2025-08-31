@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../domain/entities/pomodoro_session.dart';
 import '../../domain/entities/pomodoro_statistics.dart';
+import '../../domain/entities/pomodoro_settings.dart';
 import '../../../../core/widgets/animations.dart';
 import '../bloc/pomodoro_bloc.dart';
 import '../bloc/pomodoro_event.dart';
@@ -76,28 +77,61 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
             );
           }
 
+          // Check if we have statistics data in the current state
+          PomodoroStatistics? todayStats;
+          List<PomodoroStatistics>? weeklyStats;
+          List<PomodoroSession>? sessions;
+
           if (state is PomodoroHistoryLoaded) {
-            return _buildStatisticsView(context, state);
+            return _buildStatisticsView(state);
+          } else if (state is PomodoroRunning && state.todayStats != null) {
+            // Timer is running but we have statistics data
+            todayStats = state.todayStats!;
+            weeklyStats = state.weeklyStats!;
+            sessions = state.sessions!;
+          } else if (state is PomodoroPaused && state.todayStats != null) {
+            // Timer is paused but we have statistics data
+            todayStats = state.todayStats!;
+            weeklyStats = state.weeklyStats!;
+            sessions = state.sessions!;
           }
 
-          // Loading state
+          if (todayStats != null && weeklyStats != null && sessions != null) {
+            // Create a temporary PomodoroHistoryLoaded-like structure
+            final historyState = PomodoroHistoryLoaded(
+              sessions: sessions,
+              todayStats: todayStats,
+              weeklyStats: weeklyStats,
+              settings: state is PomodoroRunning
+                  ? state.settings
+                  : state is PomodoroPaused
+                      ? state.settings
+                      : const PomodoroSettings(),
+            );
+            return _buildStatisticsView(historyState);
+          }
+
+          // For any other state, try to load statistics and show loading
+          if (state is PomodoroRunning || state is PomodoroPaused) {
+            // Timer is running/paused but no statistics yet, try to load them
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                context
+                    .read<PomodoroBloc>()
+                    .add(const PomodoroHistoryLoadRequested());
+              }
+            });
+          }
+
           return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Loading statistics...'),
-              ],
-            ),
+            child: CircularProgressIndicator(),
           );
         },
       ),
     );
   }
 
-  Widget _buildStatisticsView(
-      BuildContext context, PomodoroHistoryLoaded state) {
+  Widget _buildStatisticsView(PomodoroHistoryLoaded state) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
