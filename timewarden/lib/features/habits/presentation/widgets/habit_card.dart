@@ -36,7 +36,7 @@ class HabitCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8), // Reduced from 12 to 8
           child: Row(
             children: [
               // Icon and completion status
@@ -70,36 +70,48 @@ class HabitCard extends StatelessWidget {
                       onToggleCompletion?.call();
                     },
                     child: SizedBox(
-                      width: 40,
-                      height: 40,
+                      width: 32, // Reduced from 40 to 32
+                      height: 32, // Reduced from 40 to 32
                       child: Center(
                         child: AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: isCurrentlyCompleted
                               ? Container(
                                   key: ValueKey('completed'),
-                                  width: 28,
-                                  height: 28,
+                                  width: 24, // Reduced from 28 to 24
+                                  height: 24, // Reduced from 28 to 24
                                   decoration: BoxDecoration(
-                                    color: Colors.green.shade600,
-                                    borderRadius: BorderRadius.circular(14),
+                                    color: Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? const Color(
+                                            0xFF059669) // Darker green for dark mode
+                                        : const Color(
+                                            0xFF10B981), // Brighter green for light mode
+                                    borderRadius: BorderRadius.circular(
+                                        12), // Reduced from 14 to 12
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.check_rounded,
                                     color: Colors.white,
-                                    size: 18,
+                                    size: 16, // Reduced from 18 to 16
                                   ),
                                 )
                               : Container(
                                   key: ValueKey('incomplete'),
-                                  width: 28,
-                                  height: 28,
+                                  width: 24, // Reduced from 28 to 24
+                                  height: 24, // Reduced from 28 to 24
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: Colors.grey.shade400,
+                                      color: Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(
+                                              0xFF4B5563) // Better contrast for dark mode
+                                          : const Color(
+                                              0xFFD1D5DB), // Light gray for light mode
                                       width: 2,
                                     ),
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(
+                                        12), // Reduced from 14 to 12
                                   ),
                                 ),
                         ),
@@ -108,7 +120,7 @@ class HabitCard extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8), // Reduced from 12 to 8
 
               // Habit details
               Expanded(
@@ -128,28 +140,28 @@ class HabitCard extends StatelessWidget {
                     ),
                     if (habit.description != null &&
                         habit.description!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1), // Reduced from 2 to 1
                       Text(
                         habit.description!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurfaceVariant,
-                              fontSize: 12,
+                              fontSize: 11, // Reduced from 12 to 11
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4), // Reduced from 6 to 4
                     Row(
                       children: [
                         Icon(
                           Icons.repeat,
-                          size: 14,
+                          size: 12, // Reduced from 14 to 12
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3), // Reduced from 4 to 3
                         Text(
                           habit.frequency.displayText,
                           style:
@@ -163,10 +175,10 @@ class HabitCard extends StatelessWidget {
                         if (habit.currentStreak > 0) ...[
                           Icon(
                             Icons.local_fire_department,
-                            size: 14,
+                            size: 12, // Reduced from 14 to 12
                             color: Colors.orange,
                           ),
-                          const SizedBox(width: 2),
+                          const SizedBox(width: 1), // Reduced from 2 to 1
                           Text(
                             '${habit.currentStreak}',
                             style:
@@ -183,16 +195,22 @@ class HabitCard extends StatelessWidget {
               ),
 
               // Quick action button
-              IconButton(
-                onPressed: () {
-                  HapticService.buttonTap();
-                  onToggleCompletion?.call();
-                },
-                icon: Icon(
-                  isCompleted ? Icons.undo : Icons.check,
-                  color: habitColor,
+              SizedBox(
+                width: 32, // Constrain button width
+                height: 32, // Constrain button height
+                child: IconButton(
+                  padding: EdgeInsets.zero, // Remove default padding
+                  onPressed: () {
+                    HapticService.buttonTap();
+                    onToggleCompletion?.call();
+                  },
+                  icon: Icon(
+                    isCompleted ? Icons.undo : Icons.check,
+                    color: habitColor,
+                    size: 18, // Smaller icon
+                  ),
+                  tooltip: isCompleted ? 'Mark incomplete' : 'Mark complete',
                 ),
-                tooltip: isCompleted ? 'Mark incomplete' : 'Mark complete',
               ),
             ],
           ),

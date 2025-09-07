@@ -18,8 +18,9 @@ class CalendarHabitsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
+    // Reverse the order so latest days are on the left
     final days =
-        List.generate(5, (index) => today.subtract(Duration(days: 4 - index)));
+        List.generate(5, (index) => today.subtract(Duration(days: index)));
 
     return Column(
       children: [
@@ -263,21 +264,40 @@ class CalendarHabitsView extends StatelessWidget {
                           height: 28,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.green.shade400,
-                                Colors.green.shade600,
-                              ],
+                              colors: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? [
+                                      const Color(
+                                          0xFF059669), // Darker green for dark mode
+                                      const Color(0xFF047857),
+                                    ]
+                                  : [
+                                      const Color(
+                                          0xFF10B981), // Brighter green for light mode
+                                      const Color(0xFF059669),
+                                    ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
                             borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.green.shade200,
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF059669)
+                                              .withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : [
+                                        BoxShadow(
+                                          color: const Color(0xFF10B981)
+                                              .withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
                           ),
                           child: const Icon(
                             Icons.check_circle,
@@ -290,16 +310,31 @@ class CalendarHabitsView extends StatelessWidget {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? const Color(
+                                    0xFF1F2937) // Dark background for dark mode
+                                : const Color(
+                                    0xFFF9FAFB), // Light background for light mode
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.grey.shade300,
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(
+                                      0xFF4B5563) // Better contrast for dark mode
+                                  : const Color(
+                                      0xFFD1D5DB), // Light gray for light mode
                               width: 2,
                             ),
                           ),
                           child: Icon(
                             Icons.radio_button_unchecked,
-                            color: Colors.grey.shade400,
+                            color: Theme.of(context).brightness ==
+                                    Brightness.dark
+                                ? const Color(
+                                    0xFF6B7280) // Better visibility in dark mode
+                                : const Color(
+                                    0xFF9CA3AF), // Standard gray for light mode
                             size: 16,
                           ),
                         ),

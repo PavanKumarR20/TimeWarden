@@ -69,8 +69,7 @@ class TimeWardenApp extends StatelessWidget {
             providers: [
               BlocProvider(
                 create: (context) =>
-                    AuthBloc(AuthRepositoryImpl(FirebaseService()))
-                      ..add(AuthCheckRequested()),
+                    AuthBloc(AuthRepositoryImpl(FirebaseService())),
               ),
               BlocProvider(
                 create: (context) => PomodoroBloc(),
