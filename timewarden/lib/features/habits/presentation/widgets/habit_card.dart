@@ -19,7 +19,9 @@ class HabitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = habit.isCompletedForCurrentPeriod;
+    final isCompleted = habit.frequency.type == HabitFrequencyType.daily
+        ? habit.isCompletedForCurrentPeriod
+        : (habit.isCompletedToday || habit.isCompletedForCurrentPeriod);
     Color habitColor;
     try {
       habitColor = habit.color != null
@@ -51,8 +53,20 @@ class HabitCard extends StatelessWidget {
                       (h) => h.id == habit.id,
                       orElse: () => habit,
                     );
-                    return prevHabit.isCompletedForCurrentPeriod !=
-                        currHabit.isCompletedForCurrentPeriod;
+
+                    // Check if completion status changed for this habit
+                    final prevCompleted =
+                        prevHabit.frequency.type == HabitFrequencyType.daily
+                            ? prevHabit.isCompletedForCurrentPeriod
+                            : (prevHabit.isCompletedToday ||
+                                prevHabit.isCompletedForCurrentPeriod);
+                    final currCompleted =
+                        currHabit.frequency.type == HabitFrequencyType.daily
+                            ? currHabit.isCompletedForCurrentPeriod
+                            : (currHabit.isCompletedToday ||
+                                currHabit.isCompletedForCurrentPeriod);
+
+                    return prevCompleted != currCompleted;
                   }
                   return false;
                 },
@@ -62,24 +76,52 @@ class HabitCard extends StatelessWidget {
                           orElse: () => habit)
                       : habit;
                   final isCurrentlyCompleted =
-                      currentHabit.isCompletedForCurrentPeriod;
+                      currentHabit.frequency.type == HabitFrequencyType.daily
+                          ? currentHabit.isCompletedForCurrentPeriod
+                          : (currentHabit.isCompletedToday ||
+                              currentHabit.isCompletedForCurrentPeriod);
 
                   return AnimatedScaleButton(
                     onTap: () {
                       HapticService.buttonTap();
+                      // Show success animation for completion
+                      if (!isCurrentlyCompleted) {
+                        _showCompletionSuccessAnimation(context);
+                      }
                       onToggleCompletion?.call();
                     },
                     child: SizedBox(
-                      width: 32, // Reduced from 40 to 32
-                      height: 32, // Reduced from 40 to 32
+                      width:
+                          28, // Further reduced from 32 to 28 for more text space
+                      height:
+                          28, // Further reduced from 32 to 28 for more text space
                       child: Center(
                         child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
+                          duration: const Duration(
+                              milliseconds:
+                                  400), // Increased from 200 for more noticeable animation
+                          transitionBuilder:
+                              (Widget child, Animation<double> animation) {
+                            return ScaleTransition(
+                              scale: Tween<double>(
+                                begin: 0.7, // Start smaller for bounce effect
+                                end: 1.3, // Scale up beyond normal size
+                              ).animate(CurvedAnimation(
+                                parent: animation,
+                                curve: Curves
+                                    .elasticOut, // Changed to elastic for bounce effect
+                              )),
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            );
+                          },
                           child: isCurrentlyCompleted
                               ? Container(
                                   key: ValueKey('completed'),
-                                  width: 24, // Reduced from 28 to 24
-                                  height: 24, // Reduced from 28 to 24
+                                  width: 20, // Reduced from 24 to 20
+                                  height: 20, // Reduced from 24 to 20
                                   decoration: BoxDecoration(
                                     color: Theme.of(context).brightness ==
                                             Brightness.dark
@@ -88,18 +130,18 @@ class HabitCard extends StatelessWidget {
                                         : const Color(
                                             0xFF10B981), // Brighter green for light mode
                                     borderRadius: BorderRadius.circular(
-                                        12), // Reduced from 14 to 12
+                                        10), // Reduced from 12 to 10
                                   ),
                                   child: Icon(
                                     Icons.check_rounded,
                                     color: Colors.white,
-                                    size: 16, // Reduced from 18 to 16
+                                    size: 14, // Reduced from 16 to 14
                                   ),
                                 )
                               : Container(
                                   key: ValueKey('incomplete'),
-                                  width: 24, // Reduced from 28 to 24
-                                  height: 24, // Reduced from 28 to 24
+                                  width: 20, // Reduced from 24 to 20
+                                  height: 20, // Reduced from 24 to 20
                                   decoration: BoxDecoration(
                                     border: Border.all(
                                       color: Theme.of(context).brightness ==
@@ -111,7 +153,7 @@ class HabitCard extends StatelessWidget {
                                       width: 2,
                                     ),
                                     borderRadius: BorderRadius.circular(
-                                        12), // Reduced from 14 to 12
+                                        10), // Reduced from 12 to 10
                                   ),
                                 ),
                         ),
@@ -195,21 +237,41 @@ class HabitCard extends StatelessWidget {
               ),
 
               // Quick action button
-              SizedBox(
-                width: 32, // Constrain button width
-                height: 32, // Constrain button height
-                child: IconButton(
-                  padding: EdgeInsets.zero, // Remove default padding
-                  onPressed: () {
-                    HapticService.buttonTap();
-                    onToggleCompletion?.call();
-                  },
-                  icon: Icon(
-                    isCompleted ? Icons.undo : Icons.check,
-                    color: habitColor,
-                    size: 18, // Smaller icon
+              AnimatedScaleButton(
+                onTap: () {
+                  HapticService.buttonTap();
+                  // Show success animation for completion
+                  if (!isCompleted) {
+                    _showCompletionSuccessAnimation(context);
+                  }
+                  onToggleCompletion?.call();
+                },
+                child: Container(
+                  width: 28, // Reduced from 32 to 28 to match completion button
+                  height:
+                      28, // Reduced from 32 to 28 to match completion button
+                  decoration: BoxDecoration(
+                    color: isCompleted
+                        ? Theme.of(context)
+                            .colorScheme
+                            .primaryContainer
+                            .withOpacity(0.3)
+                        : habitColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isCompleted
+                          ? Theme.of(context).colorScheme.primary
+                          : habitColor.withOpacity(0.3),
+                      width: 1.5,
+                    ),
                   ),
-                  tooltip: isCompleted ? 'Mark incomplete' : 'Mark complete',
+                  child: Icon(
+                    isCompleted ? Icons.undo : Icons.check,
+                    color: isCompleted
+                        ? Theme.of(context).colorScheme.primary
+                        : habitColor,
+                    size: 16, // Reduced from 18 to 16
+                  ),
                 ),
               ),
             ],
@@ -217,5 +279,98 @@ class HabitCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showCompletionSuccessAnimation(BuildContext context) {
+    // Show a brief overlay animation for successful completion - slides up from bottom
+    OverlayEntry? overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Material(
+          color: Colors.transparent,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1.0), // Start from bottom
+              end: const Offset(0, -0.3), // Slide up to 70% from bottom
+            ).animate(CurvedAnimation(
+              parent: AnimationController(
+                duration: const Duration(milliseconds: 800),
+                vsync: Navigator.of(context),
+              )..forward(),
+              curve: Curves.elasticOut,
+            )),
+            child: FadeTransition(
+              opacity: Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).animate(CurvedAnimation(
+                parent: AnimationController(
+                  duration: const Duration(milliseconds: 600),
+                  vsync: Navigator.of(context),
+                )..forward(),
+                curve: Curves.easeOut,
+              )),
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF059669).withOpacity(0.95)
+                      : const Color(0xFF10B981).withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF059669).withOpacity(0.5)
+                          : const Color(0xFF10B981).withOpacity(0.5),
+                      blurRadius: 25,
+                      spreadRadius: 5,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.celebration,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Great job! 🎉',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+
+    // Remove the overlay after animation
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      overlayEntry?.remove();
+    });
   }
 }

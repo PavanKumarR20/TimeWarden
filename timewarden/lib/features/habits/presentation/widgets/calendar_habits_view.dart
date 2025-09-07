@@ -20,7 +20,7 @@ class CalendarHabitsView extends StatelessWidget {
     final today = DateTime.now();
     // Reverse the order so latest days are on the left
     final days =
-        List.generate(5, (index) => today.subtract(Duration(days: index)));
+        List.generate(4, (index) => today.subtract(Duration(days: index)));
 
     return Column(
       children: [
@@ -48,7 +48,8 @@ class CalendarHabitsView extends StatelessWidget {
   Widget _buildDaysHeader(List<DateTime> days) {
     return Builder(
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 8), // Reduced padding
         decoration: BoxDecoration(
           color: Theme.of(context)
               .colorScheme
@@ -62,20 +63,22 @@ class CalendarHabitsView extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Habit name column space
-            const SizedBox(width: 140),
+            // Habit name column space - increased for more text space
+            const SizedBox(width: 180), // Increased from 140 to 180
             // Days columns
             ...days.map((day) {
               final isToday = _isToday(day);
               return Expanded(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  margin: const EdgeInsets.symmetric(
+                      horizontal:
+                          1), // Reduced from 2 to match checkbox spacing
                   child: Column(
                     children: [
                       Text(
                         DateFormat('E').format(day).toUpperCase(),
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 8, // Reduced from 9
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.5,
                           color: isToday
@@ -83,17 +86,18 @@ class CalendarHabitsView extends StatelessWidget {
                               : Colors.grey.shade600,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2), // Reduced from 3
                       Container(
-                        width: 32,
-                        height: 24,
+                        width: 28, // Reduced from 32
+                        height: 20, // Reduced from 24
                         decoration: BoxDecoration(
                           color: isToday
                               ? Theme.of(context).colorScheme.primary
                               : Theme.of(context)
                                   .colorScheme
                                   .surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius:
+                              BorderRadius.circular(10), // Reduced from 12
                           border: isToday
                               ? null
                               : Border.all(
@@ -138,33 +142,34 @@ class CalendarHabitsView extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(
+          horizontal: 16, vertical: 10), // Reduced padding
       decoration: BoxDecoration(
         border: Border(
           left: BorderSide(
             color: habitColor,
-            width: 4,
+            width: 3, // Reduced from 4
           ),
         ),
       ),
       child: Row(
         children: [
-          // Habit info
+          // Habit info - increased width for more text space
           SizedBox(
-            width: 140,
+            width: 180, // Increased from 140 to 180
             child: Padding(
-              padding: const EdgeInsets.only(left: 12),
+              padding: const EdgeInsets.only(left: 8), // Reduced from 12
               child: GestureDetector(
                 onTap: () => _navigateToHabitDetail(context, habit),
                 child: Text(
                   habit.name,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14, // Reduced from 16
                     fontWeight: FontWeight.w600,
                     color: Theme.of(context).colorScheme.onSurface,
-                    height: 1.2,
+                    height: 1.1, // Reduced from 1.2
                   ),
-                  maxLines: 2,
+                  maxLines: 1, // Changed from 2 to 1 to prevent wrapping
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -174,7 +179,8 @@ class CalendarHabitsView extends StatelessWidget {
           // Completion checkboxes for each day
           ...days.map((day) => Expanded(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  margin: const EdgeInsets.symmetric(
+                      horizontal: 1), // Reduced from 2 to 1 for tighter spacing
                   child:
                       _buildCompletionCheckbox(context, habit, day, habitColor),
                 ),
@@ -242,17 +248,26 @@ class CalendarHabitsView extends StatelessWidget {
           return AnimatedScaleButton(
             onTap: () => _toggleCompletion(context, currentHabit, day),
             child: Container(
-              width: 36,
-              height: 36,
+              width: 32, // Reduced from 36
+              height: 32, // Reduced from 36
               child: Center(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
+                  duration: const Duration(
+                      milliseconds:
+                          400), // Increased from 300 for more noticeable animation
                   transitionBuilder:
                       (Widget child, Animation<double> animation) {
                     return ScaleTransition(
-                      scale: animation,
-                      child: RotationTransition(
-                        turns: animation,
+                      scale: Tween<double>(
+                        begin: 0.8, // Start smaller for bounce effect
+                        end: 1.2, // Scale up beyond normal size
+                      ).animate(CurvedAnimation(
+                        parent: animation,
+                        curve: Curves
+                            .elasticOut, // Changed to elastic for bounce effect
+                      )),
+                      child: FadeTransition(
+                        opacity: animation,
                         child: child,
                       ),
                     );
@@ -260,8 +275,8 @@ class CalendarHabitsView extends StatelessWidget {
                   child: isCompleted
                       ? Container(
                           key: const ValueKey('completed'),
-                          width: 28,
-                          height: 28,
+                          width: 24, // Reduced from 28
+                          height: 24, // Reduced from 28
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: Theme.of(context).brightness ==
@@ -279,7 +294,8 @@ class CalendarHabitsView extends StatelessWidget {
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius:
+                                BorderRadius.circular(12), // Reduced from 14
                             boxShadow:
                                 Theme.of(context).brightness == Brightness.dark
                                     ? [
@@ -302,13 +318,13 @@ class CalendarHabitsView extends StatelessWidget {
                           child: const Icon(
                             Icons.check_circle,
                             color: Colors.white,
-                            size: 18,
+                            size: 16, // Reduced from 18
                           ),
                         )
                       : Container(
                           key: const ValueKey('incomplete'),
-                          width: 24,
-                          height: 24,
+                          width: 20, // Reduced from 24
+                          height: 20, // Reduced from 24
                           decoration: BoxDecoration(
                             color: Theme.of(context).brightness ==
                                     Brightness.dark
@@ -316,7 +332,8 @@ class CalendarHabitsView extends StatelessWidget {
                                     0xFF1F2937) // Dark background for dark mode
                                 : const Color(
                                     0xFFF9FAFB), // Light background for light mode
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius:
+                                BorderRadius.circular(10), // Reduced from 12
                             border: Border.all(
                               color: Theme.of(context).brightness ==
                                       Brightness.dark
@@ -335,7 +352,7 @@ class CalendarHabitsView extends StatelessWidget {
                                     0xFF6B7280) // Better visibility in dark mode
                                 : const Color(
                                     0xFF9CA3AF), // Standard gray for light mode
-                            size: 16,
+                            size: 14, // Reduced from 16
                           ),
                         ),
                 ),
@@ -375,6 +392,11 @@ class CalendarHabitsView extends StatelessWidget {
       HapticService.habitCompleted(); // Medium haptic for checking
     }
 
+    // Show brief success animation for completion
+    if (!isCompleted) {
+      _showCompletionSuccessAnimation(context);
+    }
+
     context.read<HabitsBloc>().add(
           HabitCompletionToggled(
             habitId: habit.id,
@@ -398,6 +420,99 @@ class CalendarHabitsView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showCompletionSuccessAnimation(BuildContext context) {
+    // Show a brief overlay animation for successful completion - slides up from bottom
+    OverlayEntry? overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Material(
+          color: Colors.transparent,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 1.0), // Start from bottom
+              end: const Offset(0, -0.3), // Slide up to 70% from bottom
+            ).animate(CurvedAnimation(
+              parent: AnimationController(
+                duration: const Duration(milliseconds: 800),
+                vsync: Navigator.of(context),
+              )..forward(),
+              curve: Curves.elasticOut,
+            )),
+            child: FadeTransition(
+              opacity: Tween<double>(
+                begin: 0.0,
+                end: 1.0,
+              ).animate(CurvedAnimation(
+                parent: AnimationController(
+                  duration: const Duration(milliseconds: 600),
+                  vsync: Navigator.of(context),
+                )..forward(),
+                curve: Curves.easeOut,
+              )),
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF059669).withOpacity(0.95)
+                      : const Color(0xFF10B981).withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF059669).withOpacity(0.5)
+                          : const Color(0xFF10B981).withOpacity(0.5),
+                      blurRadius: 25,
+                      spreadRadius: 5,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.celebration,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Great job! 🎉',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(overlayEntry);
+
+    // Remove the overlay after animation
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      overlayEntry?.remove();
+    });
   }
 
   bool _isToday(DateTime day) {
