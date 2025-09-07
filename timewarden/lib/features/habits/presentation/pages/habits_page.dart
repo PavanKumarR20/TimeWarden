@@ -48,6 +48,10 @@ class _HabitsViewState extends State<HabitsView> {
   bool _isCalendarView = true; // Default to calendar view
   bool _hideCompletedHabits = true; // Default to hiding completed habits
 
+  // Track habits that were just completed for smooth transitions
+  final Set<String> _recentlyCompletedHabits = {};
+  final Map<String, DateTime> _completionTimes = {};
+
   @override
   void initState() {
     super.initState();
@@ -142,6 +146,23 @@ class _HabitsViewState extends State<HabitsView> {
     List<Habit> displayHabits = allHabits;
     if (_hideCompletedHabits) {
       displayHabits = allHabits.where((habit) {
+        // Keep recently completed habits visible for a brief moment
+        if (_recentlyCompletedHabits.contains(habit.id)) {
+          final completionTime = _completionTimes[habit.id];
+          if (completionTime != null) {
+            final timeSinceCompletion =
+                DateTime.now().difference(completionTime);
+            // Keep visible for 1.5 seconds to show completion feedback
+            if (timeSinceCompletion.inMilliseconds < 1500) {
+              return true;
+            } else {
+              // Remove from tracking after the delay
+              _recentlyCompletedHabits.remove(habit.id);
+              _completionTimes.remove(habit.id);
+            }
+          }
+        }
+
         // Use the new period-aware completion check
         return !habit.isCompletedForCurrentPeriod;
       }).toList();
@@ -344,22 +365,101 @@ class _HabitsViewState extends State<HabitsView> {
         itemCount: habits.length,
         itemBuilder: (context, index) {
           final habit = habits[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: HabitCard(
-              habit: habit,
-              onTap: () => _navigateToHabitDetail(context, habit),
-              onToggleCompletion: () {
-                context.read<HabitsBloc>().add(
-                      HabitCompletionToggled(
-                        habitId: habit.id,
-                        date: DateTime.now(),
-                      ),
-                    );
-              },
+          final isRecentlyCompleted =
+              _recentlyCompletedHabits.contains(habit.id);
+
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 1500),
+            curve: Curves.easeInOut,
+            transform:
+                isRecentlyCompleted ? Matrix4.identity() : Matrix4.identity(),
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 500),
+              opacity: isRecentlyCompleted &&
+                      _hideCompletedHabits &&
+                      habit.isCompletedForCurrentPeriod &&
+                      _shouldStartFadeOut(habit.id)
+                  ? 0.3
+                  : 1.0,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: HabitCard(
+                  habit: habit,
+                  onTap: () => _navigateToHabitDetail(context, habit),
+                  onToggleCompletion: () {
+                    _handleHabitCompletion(habit);
+                    context.read<HabitsBloc>().add(
+                          HabitCompletionToggled(
+                            habitId: habit.id,
+                            date: DateTime.now(),
+                          ),
+                        );
+                  },
+                ),
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _handleHabitCompletion(Habit habit) {
+    if (!habit.isCompletedForCurrentPeriod && _hideCompletedHabits) {
+      // Track completion for smooth transition
+      setState(() {
+        _recentlyCompletedHabits.add(habit.id);
+        _completionTimes[habit.id] = DateTime.now();
+      });
+
+      // Show success feedback
+      _showCompletionFeedback(habit);
+
+      // Schedule a state update to trigger the fade out animation
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          setState(() {
+            // This will trigger the opacity animation
+          });
+        }
+      });
+    }
+  }
+
+  bool _shouldStartFadeOut(String habitId) {
+    final completionTime = _completionTimes[habitId];
+    if (completionTime != null) {
+      final timeSinceCompletion = DateTime.now().difference(completionTime);
+      return timeSinceCompletion.inMilliseconds >= 800;
+    }
+    return false;
+  }
+
+  void _showCompletionFeedback(Habit habit) {
+    // Show a brief snackbar with completion message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              Icons.check_circle,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF059669)
+                  : const Color(0xFF10B981),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('${habit.name} completed! 🎉'),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
       ),
     );
   }

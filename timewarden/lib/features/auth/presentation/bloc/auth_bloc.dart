@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import '../../../../core/services/log_service.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -54,6 +55,15 @@ class AuthPasswordResetRequested extends AuthEvent {
   List<Object> get props => [email];
 }
 
+class AuthStateChanged extends AuthEvent {
+  final AppUser? user;
+
+  const AuthStateChanged(this.user);
+
+  @override
+  List<Object> get props => [user ?? 'null'];
+}
+
 // States
 abstract class AuthState extends Equatable {
   const AuthState();
@@ -98,6 +108,7 @@ class AuthPasswordResetSent extends AuthState {
 // BLoC
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository _authRepository;
+  late final StreamSubscription<AppUser?> _authStateSubscription;
 
   AuthBloc(this._authRepository) : super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
@@ -106,16 +117,52 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthGoogleSignInRequested>(_onAuthGoogleSignInRequested);
     on<AuthSignOutRequested>(_onAuthSignOutRequested);
     on<AuthPasswordResetRequested>(_onAuthPasswordResetRequested);
+    on<AuthStateChanged>(_onAuthStateChanged);
+
+    // Listen to auth state changes
+    _authStateSubscription = _authRepository.authStateChanges.listen((user) {
+      add(AuthStateChanged(user));
+    });
+
+    // Check initial auth state immediately
+    add(AuthCheckRequested());
+  }
+
+  @override
+  Future<void> close() {
+    _authStateSubscription.cancel();
+    return super.close();
   }
 
   Future<void> _onAuthCheckRequested(
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    final user = await _authRepository.getCurrentUser();
-    if (user != null) {
-      emit(AuthAuthenticated(user));
-    } else {
+    try {
+      LogService.auth('=== AuthCheckRequested: Starting auth check ===');
+
+      // First try immediate sync check (fastest possible path)
+      final syncUser = _authRepository.getCurrentUserSync();
+      if (syncUser != null) {
+        LogService.auth('✅ Immediate sync user found: ${syncUser.id}');
+        emit(AuthAuthenticated(syncUser));
+        return;
+      }
+
+      // If no sync user, do full async check
+      LogService.auth('No sync user, doing full async check...');
+      final user = await _authRepository.getCurrentUser();
+
+      if (user != null) {
+        LogService.auth(
+            '✅ User found during auth check: ${user.id} (${user.email})');
+        emit(AuthAuthenticated(user));
+      } else {
+        LogService.auth('❌ No user found during auth check');
+        emit(AuthUnauthenticated());
+      }
+    } catch (e) {
+      LogService.auth('❌ Error during auth check', error: e);
       emit(AuthUnauthenticated());
     }
   }
@@ -189,6 +236,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthPasswordResetSent(event.email));
     } catch (e) {
       emit(AuthError(_getErrorMessage(e)));
+    }
+  }
+
+  Future<void> _onAuthStateChanged(
+    AuthStateChanged event,
+    Emitter<AuthState> emit,
+  ) async {
+    if (event.user != null) {
+      LogService.auth('Auth state changed: User signed in - ${event.user!.id}');
+      emit(AuthAuthenticated(event.user!));
+    } else {
+      LogService.auth('Auth state changed: User signed out');
+      emit(AuthUnauthenticated());
     }
   }
 

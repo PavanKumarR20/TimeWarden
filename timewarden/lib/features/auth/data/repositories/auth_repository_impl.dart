@@ -11,12 +11,101 @@ class AuthRepositoryImpl implements AuthRepository {
         '623746770431-noalp88sed3c6s77o0lf6lefoav2arsd.apps.googleusercontent.com',
   );
 
-  AuthRepositoryImpl(this._firebaseService);
+  AuthRepositoryImpl(this._firebaseService) {
+    print('🔧 AuthRepositoryImpl initialized');
+    print('🔧 GoogleSignIn instance created');
+  }
+
+  /// Quick synchronous check for immediate Firebase user (no Google Sign-In check)
+  AppUser? getCurrentUserSync() {
+    final user = _firebaseService.currentUser;
+    if (user != null) {
+      print('🚀 Sync check: Firebase user found immediately: ${user.uid}');
+      return AppUser.fromFirebaseUser(user);
+    }
+    print('🚀 Sync check: No immediate Firebase user');
+    return null;
+  }
 
   @override
   Future<AppUser?> getCurrentUser() async {
+    print('=== getCurrentUser() called ===');
+
+    // First check Firebase user (synchronous check - fastest)
     final user = _firebaseService.currentUser;
-    return user != null ? AppUser.fromFirebaseUser(user) : null;
+    if (user != null) {
+      print('✅ Firebase user found immediately: ${user.uid} (${user.email})');
+      return AppUser.fromFirebaseUser(user);
+    }
+
+    print('No Firebase user found, checking Google Sign-In...');
+
+    // Check if Google user is signed in silently
+    try {
+      print('Calling _googleSignIn.signInSilently()...');
+
+      // Try to get the current Google user first
+      final currentGoogleUser = _googleSignIn.currentUser;
+      if (currentGoogleUser != null) {
+        print('✅ Current Google user found: ${currentGoogleUser.email}');
+
+        // Get fresh authentication tokens
+        final googleAuth = await currentGoogleUser.authentication;
+
+        if (googleAuth.accessToken != null && googleAuth.idToken != null) {
+          print('✅ Google tokens obtained, signing into Firebase...');
+          final credential = await _firebaseService.signInWithGoogle(
+            accessToken: googleAuth.accessToken!,
+            idToken: googleAuth.idToken!,
+          );
+
+          if (credential?.user != null) {
+            print(
+                '✅ Firebase user created from current Google user: ${credential!.user!.uid}');
+            return AppUser.fromFirebaseUser(credential.user!);
+          }
+        }
+      }
+
+      // If no current user, try silent sign-in
+      print('No current Google user, trying silent sign-in...');
+      final googleUser = await _googleSignIn.signInSilently();
+
+      if (googleUser != null) {
+        print('✅ Google user found silently: ${googleUser.email}');
+        print('Getting Google authentication tokens...');
+
+        // Re-authenticate with Firebase using the existing Google credentials
+        final googleAuth = await googleUser.authentication;
+
+        if (googleAuth.accessToken != null && googleAuth.idToken != null) {
+          print('✅ Google tokens obtained, signing into Firebase...');
+          final credential = await _firebaseService.signInWithGoogle(
+            accessToken: googleAuth.accessToken!,
+            idToken: googleAuth.idToken!,
+          );
+
+          if (credential?.user != null) {
+            print(
+                '✅ Firebase user created from Google credentials: ${credential!.user!.uid}');
+            return AppUser.fromFirebaseUser(credential.user!);
+          } else {
+            print('❌ Failed to create Firebase user from Google credentials');
+          }
+        } else {
+          print('❌ Google authentication tokens are null');
+        }
+      } else {
+        print('❌ No Google user found silently');
+      }
+    } catch (e) {
+      print('❌ Silent Google sign-in failed: $e');
+      print('Error type: ${e.runtimeType}');
+      print('Stack trace: ${StackTrace.current}');
+    }
+
+    print('❌ No user found, returning null');
+    return null;
   }
 
   @override

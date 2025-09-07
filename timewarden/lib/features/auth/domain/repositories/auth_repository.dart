@@ -2,6 +2,7 @@ import '../entities/app_user.dart';
 
 abstract class AuthRepository {
   Future<AppUser?> getCurrentUser();
+  AppUser? getCurrentUserSync(); // Quick synchronous check for immediate auth
   Stream<AppUser?> get authStateChanges;
   Future<AppUser> signInWithEmailAndPassword({
     required String email,
