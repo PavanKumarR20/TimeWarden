@@ -34,6 +34,27 @@ class AudioService {
       print(
           'AudioService: PlayerMode set to mediaPlayer for background capability');
 
+      // Configure audio session for alerts/notifications
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: true,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.notification,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.ambient,
+            options: {
+              AVAudioSessionOptions.duckOthers,
+              AVAudioSessionOptions.defaultToSpeaker,
+            },
+          ),
+        ),
+      );
+      print('AudioService: Audio context configured for notifications');
+
       // Set initial volume
       await _audioPlayer.setVolume(_volume);
       print('AudioService: Volume set to $_volume');
@@ -94,6 +115,25 @@ class AudioService {
 
     try {
       print('AudioService: Playing enhanced sound for type: $soundType');
+
+      // Ensure audio context is configured for alerts
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          android: AudioContextAndroid(
+            isSpeakerphoneOn: false,
+            stayAwake: true,
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.notification,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: {
+              AVAudioSessionOptions.duckOthers,
+            },
+          ),
+        ),
+      );
 
       // Add immediate test for session start
       if (soundType == PomodoroSoundType.sessionStart) {

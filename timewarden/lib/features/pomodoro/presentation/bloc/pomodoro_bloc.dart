@@ -113,10 +113,34 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
                 orElse: () => SessionStatus.paused,
               ),
             );
+            print(
+                'PomodoroBloc: Loaded session with ${remaining.inSeconds} seconds remaining');
           } else {
-            // Session has expired, clear it
+            // Session has expired while app was closed
+            print(
+                'PomodoroBloc: Loaded session has expired, completing it automatically');
+
+            // Mark session as completed and add to history
+            final expiredSession = _currentSession!.copyWith(
+              status: SessionStatus.completed,
+              endTime: _currentSession!.startTime.add(totalDuration),
+              timeSpentSeconds: _currentSession!.totalDurationSeconds,
+            );
+            _sessions.add(expiredSession);
+
+            // If it was a work session, increment completed work sessions
+            if (expiredSession.type == PomodoroType.work) {
+              _completedWorkSessions++;
+            }
+
+            // Clear current session since it's completed
             _currentSession = null;
             await prefs.remove('current_session');
+            await prefs.setInt(
+                'completed_work_sessions', _completedWorkSessions);
+
+            print(
+                'PomodoroBloc: Expired session completed and added to history');
           }
         }
       } catch (e) {
@@ -363,7 +387,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         HapticService.pomodoroComplete();
       }
 
-      // Play completion sound based on session type
+      // Play completion sound based on session type (in-app sound)
+      // This works when app is in foreground
       if (_currentSession!.type == PomodoroType.work) {
         await _audioService
             .playPomodoroSound(PomodoroSoundType.sessionComplete);
@@ -374,7 +399,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         await _audioService.playPomodoroSound(PomodoroSoundType.breakComplete);
       }
 
-      // Show completion notification with sound for background alerts
+      // Show completion notification with custom sound for background alerts
+      // This ensures sound plays even when app is backgrounded
       if (_settings.enableNotifications) {
         final sessionTypeName = _currentSession!.type == PomodoroType.work
             ? 'Work'
@@ -394,6 +420,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
                 : 'Short Break')
             : 'Work Session';
 
+        print(
+            'PomodoroBloc: Showing session completion notification with sound for background playback');
+
+        // Critical: This notification will play custom sounds even when app is backgrounded
         await _notificationService.showSessionCompletionNotification(
           sessionType: sessionTypeName,
           message: message,
@@ -448,57 +478,91 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     PomodoroSkipBreakRequested event,
     Emitter<PomodoroState> emit,
   ) async {
-    if (state is PomodoroRunning || state is PomodoroPaused) {
+    try {
+      // Prevent multiple simultaneous skip break requests
+      if (state is! PomodoroRunning && state is! PomodoroPaused) {
+        print('PomodoroBloc: Skip break requested but no valid active session');
+        return;
+      }
+
       final currentSession = (state is PomodoroRunning)
           ? (state as PomodoroRunning).currentSession
           : (state as PomodoroPaused).currentSession;
 
       // Only allow skipping breaks
-      if (currentSession.type == PomodoroType.shortBreak ||
-          currentSession.type == PomodoroType.longBreak) {
-        print('Skipping break session, transitioning to next work session...');
-
-        // Mark current break as completed and add to sessions
-        final completedBreak = currentSession.copyWith(
-          status: SessionStatus.completed,
-          endTime: DateTime.now(),
-          timeSpentSeconds:
-              currentSession.totalDurationSeconds, // Mark as fully completed
-        );
-        _sessions.add(completedBreak);
-
-        // Stop current timer
-        _timer?.cancel();
-
-        // Determine next session type (should be work)
-        _completedWorkSessions++;
-
-        // Generate unique ID for new session
-        final sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
-
-        // Start next work session
-        final nextSession = PomodoroSession(
-          id: sessionId,
-          type: PomodoroType.work,
-          durationMinutes: _settings.workDurationMinutes,
-          startTime: DateTime.now(),
-          taskDescription: currentSession.taskDescription,
-          status: SessionStatus.active,
-        );
-
-        _currentSession = nextSession;
-        _startTimer();
-
-        // Play work start sound
-        await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
-
-        emit(PomodoroRunning(
-          currentSession: nextSession,
-          settings: _settings,
-          completedWorkSessions: _completedWorkSessions,
-          isLongBreakNext: _isLongBreakNext(),
-        ));
+      if (currentSession.type != PomodoroType.shortBreak &&
+          currentSession.type != PomodoroType.longBreak) {
+        print(
+            'PomodoroBloc: Skip break requested but current session is not a break: ${currentSession.type.name}');
+        return;
       }
+
+      print(
+          'PomodoroBloc: Skipping ${currentSession.type.name} session (ID: ${currentSession.id})');
+
+      // Provide haptic feedback for skip action
+      HapticService.buttonTap();
+
+      // Stop current timer immediately and cancel notification
+      _timer?.cancel();
+      await _cancelNotification();
+      print('PomodoroBloc: Cancelled timer and notification for skip break');
+
+      // Mark current break as completed and add to sessions
+      final completedBreak = currentSession.copyWith(
+        status: SessionStatus.completed,
+        endTime: DateTime.now(),
+        timeSpentSeconds:
+            currentSession.totalDurationSeconds, // Mark as fully completed
+      );
+      _sessions.add(completedBreak);
+      print(
+          'PomodoroBloc: Marked break as completed and added to sessions history');
+
+      // Generate unique ID for new work session
+      final sessionId = const Uuid().v4();
+
+      // Create and start next work session
+      final nextSession = PomodoroSession(
+        id: sessionId,
+        type: PomodoroType.work,
+        durationMinutes: _settings.workDurationMinutes,
+        startTime: DateTime.now(),
+        taskDescription: currentSession.taskDescription,
+        status: SessionStatus.active,
+      );
+
+      // Update current session reference
+      _currentSession = nextSession;
+      print(
+          'PomodoroBloc: Created new work session (ID: $sessionId, Duration: ${_settings.workDurationMinutes}min)');
+
+      // Start timer for new work session
+      _startTimer();
+
+      // Play work start sound
+      await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
+
+      // Emit new running state
+      emit(PomodoroRunning(
+        currentSession: nextSession,
+        settings: _settings,
+        completedWorkSessions: _completedWorkSessions,
+        isLongBreakNext: _isLongBreakNext(),
+      ));
+      print('PomodoroBloc: Emitted PomodoroRunning state for new work session');
+
+      // Save state to ensure persistence
+      await _saveState();
+
+      // Update notification for new work session
+      await _updateNotification();
+      print(
+          'PomodoroBloc: Skip break completed successfully - now running ${nextSession.durationMinutes}min work session');
+    } catch (e, stackTrace) {
+      print('PomodoroBloc: Error during skip break: $e');
+      print('Stack trace: $stackTrace');
+      emit(PomodoroError('Failed to skip break: $e'));
     }
   }
 

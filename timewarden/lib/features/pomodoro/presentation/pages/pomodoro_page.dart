@@ -46,6 +46,10 @@ class _PomodoroPageState extends State<PomodoroPage>
     if (state == AppLifecycleState.resumed) {
       print('PomodoroPage: App resumed, syncing timer...');
       context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      print(
+          'PomodoroPage: App backgrounded - completion sounds will play via notifications');
     }
   }
 
