@@ -327,7 +327,17 @@ class NotificationService {
     debugPrint('NotificationService: Showing session completion notification');
     debugPrint('NotificationService: Type: $sessionType, Message: $message');
 
-    const AndroidNotificationDetails androidDetails =
+    // Determine which custom sound to play based on session type
+    String customSoundFile;
+    if (sessionType == 'Work') {
+      customSoundFile = 'work_complete'; // Custom work completion sound
+    } else if (sessionType == 'Long Break') {
+      customSoundFile = 'session_complete'; // Victory fanfare for long break
+    } else {
+      customSoundFile = 'break_complete'; // Break completion sound
+    }
+
+    final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       'session_alerts',
       'Session Alerts',
@@ -338,20 +348,28 @@ class NotificationService {
       enableVibration: true,
       enableLights: true,
       playSound: true,
+      sound: RawResourceAndroidNotificationSound(customSoundFile),
       icon: '@mipmap/launcher_icon',
       autoCancel: true,
       fullScreenIntent: false,
+      // Add these for better background behavior
+      ongoing: false,
+      showWhen: true,
+      when: DateTime.now().millisecondsSinceEpoch,
+      // Category for alarms to bypass Do Not Disturb
+      category: AndroidNotificationCategory.alarm,
     );
 
-    const DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+    final DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
       categoryIdentifier: 'session_completion',
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      sound: '$customSoundFile.mp3',
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidDetails,
       iOS: iOSDetails,
     );
@@ -367,6 +385,7 @@ class NotificationService {
 
     debugPrint(
         'NotificationService: Session completion - Title: $title, Body: $body');
+    debugPrint('NotificationService: Using custom sound: $customSoundFile');
 
     await _flutterLocalNotificationsPlugin.show(
       999, // Different ID for session completion notifications
