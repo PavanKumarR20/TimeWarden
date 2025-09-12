@@ -331,6 +331,20 @@ class _PomodoroPageState extends State<PomodoroPage>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // Reset Button (always available when there's any session active)
+        if (isRunning || isPaused) ...[
+          FloatingActionButton(
+            heroTag: 'reset',
+            onPressed: () {
+              _showResetConfirmationDialog(context);
+            },
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            child: const Icon(Icons.refresh),
+          ),
+          const SizedBox(width: 15),
+        ],
+
         // Stop Button (only when running or paused)
         if (isRunning || isPaused) ...[
           FloatingActionButton(
@@ -338,11 +352,12 @@ class _PomodoroPageState extends State<PomodoroPage>
             onPressed: () {
               context.read<PomodoroBloc>().add(const PomodoroStopRequested());
             },
-            backgroundColor: Theme.of(context).colorScheme.errorContainer,
-            foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+            backgroundColor:
+                Theme.of(context).colorScheme.surfaceContainerHighest,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
             child: const Icon(Icons.stop),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 15),
         ],
 
         // Skip Break Button (only when running or paused and in break session)
@@ -359,7 +374,7 @@ class _PomodoroPageState extends State<PomodoroPage>
             foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
             child: const Icon(Icons.skip_next),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 15),
         ],
 
         // Main Action Button
@@ -584,6 +599,76 @@ class _PomodoroPageState extends State<PomodoroPage>
             );
           }),
         ],
+      ),
+    );
+  }
+
+  void _showResetConfirmationDialog(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 12),
+            const Text('Reset Pomodoro'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will completely reset your current Pomodoro session, including:',
+            ),
+            const SizedBox(height: 12),
+            _buildBulletPoint('• Current timer progress'),
+            _buildBulletPoint('• Session count progress'),
+            _buildBulletPoint('• Any running timers'),
+            _buildBulletPoint('• Saved task description'),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<PomodoroBloc>().add(const PomodoroResetRequested());
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, bottom: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
