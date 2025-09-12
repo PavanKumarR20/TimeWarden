@@ -34,6 +34,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     on<PomodoroSettingsUpdated>(_onSettingsUpdated);
     on<PomodoroHistoryLoadRequested>(_onHistoryLoadRequested);
     on<PomodoroTimeSyncRequested>(_onTimeSyncRequested);
+    on<PomodoroResetRequested>(_onResetRequested);
 
     // Initialize audio service
     _initializeAudioService();
@@ -763,6 +764,63 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         ));
         await _updateNotification();
       }
+    }
+  }
+
+  // Reset all pomodoro state to clean slate
+  Future<void> _onResetRequested(
+    PomodoroResetRequested event,
+    Emitter<PomodoroState> emit,
+  ) async {
+    try {
+      print('PomodoroBloc: Resetting all Pomodoro state...');
+
+      // Provide haptic feedback for reset action
+      HapticService.buttonTap();
+
+      // Stop any running timer
+      _timer?.cancel();
+      print('PomodoroBloc: Timer cancelled');
+
+      // Cancel any notifications
+      await _cancelNotification();
+      print('PomodoroBloc: Notifications cancelled');
+
+      // If there's a current session, mark it as cancelled and add to history
+      if (_currentSession != null) {
+        final cancelledSession = _currentSession!.copyWith(
+          status: SessionStatus.cancelled,
+          endTime: DateTime.now(),
+        );
+        _sessions.add(cancelledSession);
+        print(
+            'PomodoroBloc: Current session marked as cancelled and added to history');
+      }
+
+      // Clear current session
+      _currentSession = null;
+
+      // Reset work sessions count to 0 (fresh start)
+      _completedWorkSessions = 0;
+
+      // Clear saved state from storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('current_session');
+      await prefs.setInt('completed_work_sessions', 0);
+      print('PomodoroBloc: Cleared saved state from storage');
+
+      // Emit ready state (clean slate)
+      emit(PomodoroReady(
+        settings: _settings,
+        completedWorkSessions: _completedWorkSessions,
+        isLongBreakNext: false, // Reset to false for fresh start
+      ));
+
+      print('PomodoroBloc: Reset completed successfully - back to ready state');
+    } catch (e, stackTrace) {
+      print('PomodoroBloc: Error during reset: $e');
+      print('Stack trace: $stackTrace');
+      emit(PomodoroError('Failed to reset Pomodoro: $e'));
     }
   }
 }

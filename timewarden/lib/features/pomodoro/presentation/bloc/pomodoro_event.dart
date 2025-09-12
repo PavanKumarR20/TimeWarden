@@ -74,3 +74,7 @@ class PomodoroHistoryLoadRequested extends PomodoroEvent {
 class PomodoroTimeSyncRequested extends PomodoroEvent {
   const PomodoroTimeSyncRequested();
 }
+
+class PomodoroResetRequested extends PomodoroEvent {
+  const PomodoroResetRequested();
+}
