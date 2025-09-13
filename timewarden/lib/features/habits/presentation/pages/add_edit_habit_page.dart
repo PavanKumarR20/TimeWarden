@@ -24,7 +24,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   final _descriptionController = TextEditingController();
   final _notesController = TextEditingController();
 
-  HabitCategory _selectedCategory = HabitCategory.health;
   HabitFrequency _selectedFrequency = const HabitFrequency(
     type: HabitFrequencyType.daily,
     target: 1,
@@ -81,7 +80,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
       _nameController.text = widget.habit!.name;
       _descriptionController.text = widget.habit!.description ?? '';
       _notesController.text = widget.habit!.notes ?? '';
-      _selectedCategory = widget.habit!.category;
       _selectedFrequency = widget.habit!.frequency;
       _selectedColor = widget.habit!.color;
       _selectedIcon = widget.habit!.icon;
@@ -119,7 +117,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 notes: _notesController.text.trim().isEmpty
                     ? null
                     : _notesController.text.trim(),
-                category: _selectedCategory,
                 frequency: _selectedFrequency,
                 color: _selectedColor,
                 icon: _selectedIcon,
@@ -136,7 +133,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 notes: _notesController.text.trim().isEmpty
                     ? null
                     : _notesController.text.trim(),
-                category: _selectedCategory,
                 frequency: _selectedFrequency,
                 createdAt: DateTime.now(),
                 isActive: true,
@@ -270,30 +266,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
               minLines: 3,
             ),
             const SizedBox(height: 16),
-
-            // Category selection
-            DropdownButtonFormField<HabitCategory>(
-              value: _selectedCategory,
-              decoration: const InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.category_outlined),
-              ),
-              items: HabitCategory.values.map((category) {
-                return DropdownMenuItem(
-                  value: category,
-                  child: Text(_getCategoryDisplayName(category)),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 24),
 
             // Frequency selection
             FrequencySelector(
@@ -505,26 +477,5 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
         ),
       ),
     );
-  }
-
-  String _getCategoryDisplayName(HabitCategory category) {
-    switch (category) {
-      case HabitCategory.health:
-        return 'Health';
-      case HabitCategory.learning:
-        return 'Learning';
-      case HabitCategory.productivity:
-        return 'Productivity';
-      case HabitCategory.fitness:
-        return 'Fitness';
-      case HabitCategory.mindfulness:
-        return 'Mindfulness';
-      case HabitCategory.social:
-        return 'Social';
-      case HabitCategory.creative:
-        return 'Creative';
-      case HabitCategory.other:
-        return 'Other';
-    }
   }
 }

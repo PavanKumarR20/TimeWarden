@@ -278,7 +278,11 @@ class _StreakItem extends StatelessWidget {
     }
 
     // Default category colors
-    switch (habit.category) {
+    if (habit.category == null) {
+      return theme.colorScheme.primaryContainer;
+    }
+
+    switch (habit.category!) {
       case HabitCategory.health:
         return Colors.green.withOpacity(0.2);
       case HabitCategory.fitness:
@@ -298,7 +302,10 @@ class _StreakItem extends StatelessWidget {
     }
   }
 
-  String _getCategoryEmoji(HabitCategory category) {
+  String _getCategoryEmoji(HabitCategory? category) {
+    if (category == null)
+      return '📋'; // Default emoji for habits without category
+
     switch (category) {
       case HabitCategory.health:
         return '🏥';
