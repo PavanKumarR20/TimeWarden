@@ -345,9 +345,17 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   int currentStreak = 0;
 
                   if (habitsState is HabitsLoaded) {
-                    totalHabits = habitsState.habits.length;
                     final today = DateTime.now();
-                    completedHabits = habitsState.habits.where((habit) {
+
+                    // Only count habits that are NOT completed for the current period
+                    // This excludes habits that have already met their weekly/monthly target
+                    final activeHabitsForToday =
+                        habitsState.habits.where((habit) {
+                      return !habit.isCompletedForCurrentPeriod;
+                    }).toList();
+
+                    totalHabits = activeHabitsForToday.length;
+                    completedHabits = activeHabitsForToday.where((habit) {
                       return habit.completedDates.any((date) =>
                           date.year == today.year &&
                           date.month == today.month &&
@@ -479,10 +487,15 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   );
                 }
 
-                // Show today's incomplete habits only
+                // Show today's incomplete habits only (excluding habits completed for period)
                 final today = DateTime.now();
                 final incompleteHabits = state.habits
                     .where((habit) {
+                      // Exclude habits that are completed for the current period
+                      if (habit.isCompletedForCurrentPeriod) {
+                        return false;
+                      }
+
                       final isCompletedToday = habit.completedDates.any(
                           (date) =>
                               date.year == today.year &&
