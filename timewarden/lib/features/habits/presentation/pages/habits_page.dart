@@ -65,12 +65,60 @@ class _HabitsViewState extends State<HabitsView> {
       appBar: AppBar(
         title: const Text('Habits'),
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              HapticService.buttonTap();
-              _showOptionsMenu(context);
+            onSelected: (value) {
+              HapticService.selectionClick();
+              switch (value) {
+                case 'toggle_hide_completed':
+                  setState(() {
+                    _hideCompletedHabits = !_hideCompletedHabits;
+                  });
+                  _saveHideCompletedSetting();
+                  break;
+              }
             },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'toggle_hide_completed',
+                child: Row(
+                  children: [
+                    Icon(
+                      _hideCompletedHabits
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _hideCompletedHabits
+                                ? 'Show Completed Habits'
+                                : 'Hide Completed Habits',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          Text(
+                            _hideCompletedHabits
+                                ? 'Show habits completed in current period'
+                                : 'Hide habits completed in current period',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -122,9 +170,10 @@ class _HabitsViewState extends State<HabitsView> {
     List<Habit> displayHabits = allHabits;
     if (_hideCompletedHabits) {
       displayHabits = allHabits.where((habit) {
-        // Only hide habits that are completed TODAY, not just completed for the period
-        // This allows habits completed for the period (purple state) to remain visible
-        return !habit.isCompletedToday;
+        // Hide habits that are completed for the current period
+        // This includes habits with green checkmarks (completed today) and
+        // habits with purple indicators (completed for period but not today)
+        return !habit.isCompletedForCurrentPeriod;
       }).toList();
     }
 
@@ -164,83 +213,6 @@ class _HabitsViewState extends State<HabitsView> {
               icon: const Icon(Icons.add),
               label: const Text('Add Habit'),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showOptionsMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withOpacity(0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-
-            // Title
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    'View Options',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Divider(height: 1),
-
-            // Hide completed option
-            ListTile(
-              leading: Icon(
-                _hideCompletedHabits ? Icons.visibility_off : Icons.visibility,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              title: Text(
-                _hideCompletedHabits
-                    ? 'Show Completed Habits'
-                    : 'Hide Completed Habits',
-              ),
-              subtitle: Text(
-                _hideCompletedHabits
-                    ? 'Show habits completed in current period'
-                    : 'Hide habits completed in current period',
-              ),
-              onTap: () {
-                HapticService.selectionClick();
-                setState(() {
-                  _hideCompletedHabits = !_hideCompletedHabits;
-                });
-                _saveHideCompletedSetting();
-                Navigator.pop(context);
-              },
-            ),
-
-            // Add more options here in the future
-            const SizedBox(height: 10),
           ],
         ),
       ),
