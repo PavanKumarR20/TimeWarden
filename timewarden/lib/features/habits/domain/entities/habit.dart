@@ -74,7 +74,7 @@ class Habit extends Equatable {
   final String name;
   final String? description;
   final String? notes; // Additional notes for detailed information
-  final HabitCategory category;
+  final HabitCategory? category;
   final HabitFrequency frequency;
   final DateTime createdAt;
   final bool isActive;
@@ -94,7 +94,7 @@ class Habit extends Equatable {
     required this.name,
     this.description,
     this.notes,
-    required this.category,
+    this.category,
     required this.frequency,
     required this.createdAt,
     this.isActive = true,
@@ -234,7 +234,7 @@ class Habit extends Equatable {
       'name': name,
       'description': description,
       'notes': notes,
-      'category': category.name,
+      'category': category?.name,
       'frequency': {
         'type': frequency.type.name,
         'target': frequency.target,
@@ -260,10 +260,12 @@ class Habit extends Equatable {
       name: json['name'] as String,
       description: json['description'] as String?,
       notes: json['notes'] as String?,
-      category: HabitCategory.values.firstWhere(
-        (e) => e.name == json['category'],
-        orElse: () => HabitCategory.other,
-      ),
+      category: json['category'] != null
+          ? HabitCategory.values.firstWhere(
+              (e) => e.name == json['category'],
+              orElse: () => HabitCategory.other,
+            )
+          : null,
       frequency: HabitFrequency(
         type: HabitFrequencyType.values.firstWhere(
           (e) => e.name == json['frequency']?['type'],
