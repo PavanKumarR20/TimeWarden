@@ -228,7 +228,15 @@ class CalendarHabitsView extends StatelessWidget {
                 date.month == dateOnly.month &&
                 date.day == dateOnly.day);
 
-            return prevCompleted != currCompleted;
+            // Check if the habit's period completion status changed
+            // This affects all days in the period, not just the specific date
+            final prevPeriodCompleted =
+                prevHabit.isCompletedForPeriodButNotToday;
+            final currPeriodCompleted =
+                currHabit.isCompletedForPeriodButNotToday;
+
+            return prevCompleted != currCompleted ||
+                prevPeriodCompleted != currPeriodCompleted;
           }
           return false;
         },
@@ -244,6 +252,8 @@ class CalendarHabitsView extends StatelessWidget {
               date.year == dateOnly.year &&
               date.month == dateOnly.month &&
               date.day == dateOnly.day);
+          final isCompletedForPeriodOnly =
+              currentHabit.isCompletedForPeriodButNotToday && !isCompleted;
 
           return AnimatedScaleButton(
             onTap: () => _toggleCompletion(context, currentHabit, day),
@@ -274,7 +284,7 @@ class CalendarHabitsView extends StatelessWidget {
                   },
                   child: isCompleted
                       ? Container(
-                          key: const ValueKey('completed'),
+                          key: const ValueKey('completed_today'),
                           width: 24, // Reduced from 28
                           height: 24, // Reduced from 28
                           decoration: BoxDecoration(
@@ -321,40 +331,89 @@ class CalendarHabitsView extends StatelessWidget {
                             size: 16, // Reduced from 18
                           ),
                         )
-                      : Container(
-                          key: const ValueKey('incomplete'),
-                          width: 20, // Reduced from 24
-                          height: 20, // Reduced from 24
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).brightness ==
-                                    Brightness.dark
-                                ? const Color(
-                                    0xFF1F2937) // Dark background for dark mode
-                                : const Color(
-                                    0xFFF9FAFB), // Light background for light mode
-                            borderRadius:
-                                BorderRadius.circular(10), // Reduced from 12
-                            border: Border.all(
-                              color: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? const Color(
-                                      0xFF4B5563) // Better contrast for dark mode
-                                  : const Color(
-                                      0xFFD1D5DB), // Light gray for light mode
-                              width: 2,
+                      : isCompletedForPeriodOnly
+                          ? Container(
+                              key: const ValueKey('completed_period'),
+                              width: 24, // Reduced from 28
+                              height: 24, // Reduced from 28
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? [
+                                          const Color(
+                                              0xFF7C3AED), // Purple for dark mode
+                                          const Color(0xFF6D28D9),
+                                        ]
+                                      : [
+                                          const Color(
+                                              0xFF8B5CF6), // Purple for light mode
+                                          const Color(0xFF7C3AED),
+                                        ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                    12), // Reduced from 14
+                                boxShadow: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF7C3AED)
+                                              .withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : [
+                                        BoxShadow(
+                                          color: const Color(0xFF8B5CF6)
+                                              .withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                              ),
+                              child: const Icon(
+                                Icons.check_circle_outline_rounded,
+                                color: Colors.white,
+                                size: 16, // Reduced from 18
+                              ),
+                            )
+                          : Container(
+                              key: const ValueKey('incomplete'),
+                              width: 20, // Reduced from 24
+                              height: 20, // Reduced from 24
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const Color(
+                                        0xFF1F2937) // Dark background for dark mode
+                                    : const Color(
+                                        0xFFF9FAFB), // Light background for light mode
+                                borderRadius: BorderRadius.circular(
+                                    10), // Reduced from 12
+                                border: Border.all(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? const Color(
+                                          0xFF4B5563) // Better contrast for dark mode
+                                      : const Color(
+                                          0xFFD1D5DB), // Light gray for light mode
+                                  width: 2,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.radio_button_unchecked,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const Color(
+                                        0xFF6B7280) // Better visibility in dark mode
+                                    : const Color(
+                                        0xFF9CA3AF), // Standard gray for light mode
+                                size: 14, // Reduced from 16
+                              ),
                             ),
-                          ),
-                          child: Icon(
-                            Icons.radio_button_unchecked,
-                            color: Theme.of(context).brightness ==
-                                    Brightness.dark
-                                ? const Color(
-                                    0xFF6B7280) // Better visibility in dark mode
-                                : const Color(
-                                    0xFF9CA3AF), // Standard gray for light mode
-                            size: 14, // Reduced from 16
-                          ),
-                        ),
                 ),
               ),
             ),
