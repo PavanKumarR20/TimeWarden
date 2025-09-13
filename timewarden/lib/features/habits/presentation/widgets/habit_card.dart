@@ -22,6 +22,7 @@ class HabitCard extends StatelessWidget {
     final isCompleted = habit.frequency.type == HabitFrequencyType.daily
         ? habit.isCompletedForCurrentPeriod
         : (habit.isCompletedToday || habit.isCompletedForCurrentPeriod);
+
     Color habitColor;
     try {
       habitColor = habit.color != null
@@ -66,7 +67,14 @@ class HabitCard extends StatelessWidget {
                             : (currHabit.isCompletedToday ||
                                 currHabit.isCompletedForCurrentPeriod);
 
-                    return prevCompleted != currCompleted;
+                    // Also check if the period completion state changed
+                    final prevPeriodOnly =
+                        prevHabit.isCompletedForPeriodButNotToday;
+                    final currPeriodOnly =
+                        currHabit.isCompletedForPeriodButNotToday;
+
+                    return prevCompleted != currCompleted ||
+                        prevPeriodOnly != currPeriodOnly;
                   }
                   return false;
                 },
@@ -80,6 +88,8 @@ class HabitCard extends StatelessWidget {
                           ? currentHabit.isCompletedForCurrentPeriod
                           : (currentHabit.isCompletedToday ||
                               currentHabit.isCompletedForCurrentPeriod);
+                  final isCompletedForPeriodOnly =
+                      currentHabit.isCompletedForPeriodButNotToday;
 
                   return AnimatedScaleButton(
                     onTap: () {
@@ -119,7 +129,7 @@ class HabitCard extends StatelessWidget {
                           },
                           child: isCurrentlyCompleted
                               ? Container(
-                                  key: ValueKey('completed'),
+                                  key: ValueKey('completed_today'),
                                   width: 20, // Reduced from 24 to 20
                                   height: 20, // Reduced from 24 to 20
                                   decoration: BoxDecoration(
@@ -138,24 +148,45 @@ class HabitCard extends StatelessWidget {
                                     size: 14, // Reduced from 16 to 14
                                   ),
                                 )
-                              : Container(
-                                  key: ValueKey('incomplete'),
-                                  width: 20, // Reduced from 24 to 20
-                                  height: 20, // Reduced from 24 to 20
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? const Color(
-                                              0xFF4B5563) // Better contrast for dark mode
-                                          : const Color(
-                                              0xFFD1D5DB), // Light gray for light mode
-                                      width: 2,
+                              : isCompletedForPeriodOnly
+                                  ? Container(
+                                      key: ValueKey('completed_period'),
+                                      width: 20, // Reduced from 24 to 20
+                                      height: 20, // Reduced from 24 to 20
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? const Color(
+                                                0xFF7C3AED) // Purple for dark mode
+                                            : const Color(
+                                                0xFF8B5CF6), // Purple for light mode
+                                        borderRadius: BorderRadius.circular(
+                                            10), // Reduced from 12 to 10
+                                      ),
+                                      child: Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        color: Colors.white,
+                                        size: 14, // Reduced from 16 to 14
+                                      ),
+                                    )
+                                  : Container(
+                                      key: ValueKey('incomplete'),
+                                      width: 20, // Reduced from 24 to 20
+                                      height: 20, // Reduced from 24 to 20
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: Theme.of(context).brightness ==
+                                                  Brightness.dark
+                                              ? const Color(
+                                                  0xFF4B5563) // Better contrast for dark mode
+                                              : const Color(
+                                                  0xFFD1D5DB), // Light gray for light mode
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                            10), // Reduced from 12 to 10
+                                      ),
                                     ),
-                                    borderRadius: BorderRadius.circular(
-                                        10), // Reduced from 12 to 10
-                                  ),
-                                ),
                         ),
                       ),
                     ),

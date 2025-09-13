@@ -122,17 +122,9 @@ class _HabitsViewState extends State<HabitsView> {
     List<Habit> displayHabits = allHabits;
     if (_hideCompletedHabits) {
       displayHabits = allHabits.where((habit) {
-        // Use the new period-aware completion check, but also hide habits completed today
-        final isCompletedToday = habit.isCompletedToday;
-        final isCompletedForPeriod = habit.isCompletedForCurrentPeriod;
-
-        // For frequency-based habits, hide if completed today OR if completed for the period
-        // For daily habits, hide if completed for the period
-        final shouldHide = habit.frequency.type == HabitFrequencyType.daily
-            ? isCompletedForPeriod
-            : (isCompletedToday || isCompletedForPeriod);
-
-        return !shouldHide;
+        // Only hide habits that are completed TODAY, not just completed for the period
+        // This allows habits completed for the period (purple state) to remain visible
+        return !habit.isCompletedToday;
       }).toList();
     }
 

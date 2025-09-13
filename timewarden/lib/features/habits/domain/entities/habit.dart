@@ -190,6 +190,12 @@ class Habit extends Equatable {
     return isCompletedToday && isRequiredOnDate(DateTime.now());
   }
 
+  // Check if habit is completed for current period but not today
+  // Useful for showing "period completed" state in UI
+  bool get isCompletedForPeriodButNotToday {
+    return isCompletedForCurrentPeriod && !isCompletedToday;
+  }
+
   Habit copyWith({
     String? id,
     String? name,
