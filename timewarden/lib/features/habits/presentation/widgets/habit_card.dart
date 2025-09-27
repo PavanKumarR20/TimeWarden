@@ -211,21 +211,7 @@ class HabitCard extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                     ),
-                    if (habit.description != null &&
-                        habit.description!.isNotEmpty) ...[
-                      const SizedBox(height: 1), // Reduced from 2 to 1
-                      Text(
-                        habit.description!,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                              fontSize: 11, // Reduced from 12 to 11
-                            ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    // Description removed
                     const SizedBox(height: 4), // Reduced from 6 to 4
                     Row(
                       children: [

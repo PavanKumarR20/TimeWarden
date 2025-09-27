@@ -72,7 +72,7 @@ class HabitFrequency {
 class Habit extends Equatable {
   final String id;
   final String name;
-  final String? description;
+  // Description removed
   final String? notes; // Additional notes for detailed information
   final HabitCategory? category;
   final HabitFrequency frequency;
@@ -92,7 +92,6 @@ class Habit extends Equatable {
   const Habit({
     required this.id,
     required this.name,
-    this.description,
     this.notes,
     this.category,
     required this.frequency,
@@ -199,7 +198,6 @@ class Habit extends Equatable {
   Habit copyWith({
     String? id,
     String? name,
-    String? description,
     String? notes,
     HabitCategory? category,
     HabitFrequency? frequency,
@@ -217,7 +215,6 @@ class Habit extends Equatable {
     return Habit(
       id: id ?? this.id,
       name: name ?? this.name,
-      description: description ?? this.description,
       notes: notes ?? this.notes,
       category: category ?? this.category,
       frequency: frequency ?? this.frequency,
@@ -238,7 +235,7 @@ class Habit extends Equatable {
     return {
       'id': id,
       'name': name,
-      'description': description,
+      // 'description': removed
       'notes': notes,
       'category': category?.name,
       'frequency': {
@@ -264,7 +261,6 @@ class Habit extends Equatable {
     return Habit(
       id: json['id'] as String,
       name: json['name'] as String,
-      description: json['description'] as String?,
       notes: json['notes'] as String?,
       category: json['category'] != null
           ? HabitCategory.values.firstWhere(
@@ -300,7 +296,6 @@ class Habit extends Equatable {
   List<Object?> get props => [
         id,
         name,
-        description,
         notes,
         category,
         frequency,
