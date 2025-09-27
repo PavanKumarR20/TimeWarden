@@ -1,14 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:uuid/uuid.dart';
 import '../../features/pomodoro/domain/entities/pomodoro_session.dart';
 import '../../features/pomodoro/domain/entities/pomodoro_settings.dart';
-import '../services/notification_service.dart';
-import '../services/audio_service.dart';
 
 class PomodoroBackgroundService {
   static const String _channelId = 'pomodoro_background_service';
@@ -22,11 +20,8 @@ class PomodoroBackgroundService {
   static PomodoroSession? _currentSession;
   static PomodoroSettings _settings = const PomodoroSettings();
   static int _completedWorkSessions = 0;
-  static final AudioService _audioService = AudioService();
 
   static Future<void> initialize() async {
-    await _audioService.initialize();
-
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _channelId,
       _channelName,
@@ -36,10 +31,24 @@ class PomodoroBackgroundService {
       enableVibration: false,
     );
 
+    const AndroidNotificationChannel alertsChannel = AndroidNotificationChannel(
+      'session_alerts',
+      'Session Alerts',
+      description: 'Pomodoro session completion alerts',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
     await _flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+
+    await _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(alertsChannel);
 
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
@@ -88,22 +97,25 @@ class PomodoroBackgroundService {
 
     // Periodic timer to update notification and check completion
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_currentSession != null &&
-          _currentSession!.status == SessionStatus.active) {
-        final actualElapsed =
-            DateTime.now().difference(_currentSession!.startTime).inSeconds;
+      if (_currentSession != null) {
+        if (_currentSession!.status == SessionStatus.active) {
+          // Only increment timeSpentSeconds by 1 when active (don't recalculate from startTime)
+          final newTimeSpent = _currentSession!.timeSpentSeconds + 1;
 
-        _currentSession =
-            _currentSession!.copyWith(timeSpentSeconds: actualElapsed);
+          _currentSession =
+              _currentSession!.copyWith(timeSpentSeconds: newTimeSpent);
 
-        // Update shared preferences with current state for UI to read
-        await _updateSharedPreferences();
+          print(
+              'BackgroundService: Timer tick - elapsed: ${newTimeSpent}s, remaining: ${_currentSession!.remainingSeconds}s');
 
-        if (_currentSession!.remainingSeconds <= 0) {
-          await _handleSessionCompleted(service);
-        } else {
-          await _updateNotification(service);
+          if (_currentSession!.remainingSeconds <= 0) {
+            await _handleSessionCompleted(service);
+          }
         }
+        // When paused, we don't increment timeSpentSeconds - it stays frozen
+
+        // Always update notification (for both active and paused states)
+        await _updateNotification(service);
       }
     });
 
@@ -122,6 +134,9 @@ class PomodoroBackgroundService {
     final durationMinutes = event['durationMinutes'] as int;
     final taskDescription = event['taskDescription'] as String?;
 
+    print(
+        'BackgroundService: Starting timer - type: $sessionType, duration: ${durationMinutes}min');
+
     _currentSession = PomodoroSession(
       id: const Uuid().v4(),
       type: sessionType,
@@ -131,28 +146,33 @@ class PomodoroBackgroundService {
       status: SessionStatus.active,
     );
 
-    await _updateSharedPreferences();
+    print(
+        'BackgroundService: Session created - startTime: ${_currentSession!.startTime}');
     // Note: Notification will be updated by the periodic timer
   }
 
   static Future<void> _handlePauseTimer() async {
     if (_currentSession != null) {
-      _currentSession = _currentSession!.copyWith(status: SessionStatus.paused);
-      await _updateSharedPreferences();
+      _currentSession = _currentSession!.copyWith(
+        status: SessionStatus.paused,
+        pausedAt: [..._currentSession!.pausedAt, DateTime.now()],
+      );
     }
   }
 
   static Future<void> _handleResumeTimer() async {
     if (_currentSession != null) {
-      _currentSession = _currentSession!.copyWith(status: SessionStatus.active);
-      await _updateSharedPreferences();
+      // Simply change status to active - timeSpentSeconds stays where it was when paused
+      _currentSession = _currentSession!.copyWith(
+        status: SessionStatus.active,
+        resumedAt: [..._currentSession!.resumedAt, DateTime.now()],
+      );
       // Note: Notification will be updated by the periodic timer
     }
   }
 
   static Future<void> _handleStopTimer() async {
     _currentSession = null;
-    await _updateSharedPreferences();
     // Note: Notification will be updated by the periodic timer
   }
 
@@ -174,7 +194,6 @@ class PomodoroBackgroundService {
   static Future<void> _handleStopService() async {
     _timer?.cancel();
     _currentSession = null;
-    await _updateSharedPreferences();
 
     // Show service closed notification
     await _showServiceClosedNotification();
@@ -185,24 +204,8 @@ class PomodoroBackgroundService {
   static Future<void> _handleSessionCompleted(ServiceInstance service) async {
     if (_currentSession == null) return;
 
-    // Play completion sound
-    if (_settings.enableSounds) {
-      if (_currentSession!.type == PomodoroType.work) {
-        await _audioService
-            .playPomodoroSound(PomodoroSoundType.sessionComplete);
-      } else if (_currentSession!.type == PomodoroType.longBreak) {
-        await _audioService
-            .playPomodoroSound(PomodoroSoundType.finalBreakComplete);
-      } else {
-        await _audioService.playPomodoroSound(PomodoroSoundType.breakComplete);
-      }
-    }
-
-    // Show completion notification
+    // Show completion notification with sound
     if (_settings.enableNotifications) {
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-
       final sessionTypeName = _currentSession!.type == PomodoroType.work
           ? 'Work'
           : _currentSession!.type == PomodoroType.longBreak
@@ -213,10 +216,12 @@ class PomodoroBackgroundService {
           ? 'Great job! Time for a break.'
           : 'Break time is over. Ready to focus?';
 
-      await notificationService.showSessionCompletionNotification(
+      // Use platform-level notification with sound
+      await _showCompletionNotification(
         sessionType: sessionTypeName,
         message: message,
-        nextSessionType: _getNextSessionTypeName(),
+        playSound: _settings.enableSounds,
+        enableVibration: _settings.enableVibration,
       );
     }
 
@@ -230,8 +235,6 @@ class PomodoroBackgroundService {
     if (_currentSession!.type == PomodoroType.work) {
       _completedWorkSessions++;
     }
-
-    await _updateSharedPreferences();
 
     // Notify main app about completion
     service.invoke('sessionCompleted', {
@@ -305,67 +308,39 @@ class PomodoroBackgroundService {
     );
   }
 
-  static Future<void> _updateSharedPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_currentSession != null) {
-      final sessionData = {
-        'id': _currentSession!.id,
-        'type': _currentSession!.type.name,
-        'startTime': _currentSession!.startTime.millisecondsSinceEpoch,
-        'durationMinutes': _currentSession!.durationMinutes,
-        'timeSpentSeconds': _currentSession!.timeSpentSeconds,
-        'status': _currentSession!.status.name,
-        'taskDescription': _currentSession!.taskDescription,
-      };
-      await prefs.setString('current_session', jsonEncode(sessionData));
-    }
-    await prefs.setInt('completed_work_sessions', _completedWorkSessions);
+  static Future<void> _showCompletionNotification({
+    required String sessionType,
+    required String message,
+    required bool playSound,
+    required bool enableVibration,
+  }) async {
+    await _flutterLocalNotificationsPlugin.show(
+      _notificationId + 2,
+      'Pomodoro Complete - $sessionType',
+      message,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          'session_alerts',
+          'Session Alerts',
+          playSound: playSound,
+          enableVibration: enableVibration,
+          priority: Priority.high,
+          importance: Importance.high,
+          category: AndroidNotificationCategory.alarm,
+          sound: playSound
+              ? const RawResourceAndroidNotificationSound('session_complete')
+              : null,
+        ),
+      ),
+    );
   }
 
+  // Removed SharedPreferences persistence - keeping simple
+
   static Future<void> _loadState() async {
-    final prefs = await SharedPreferences.getInstance();
-    _completedWorkSessions = prefs.getInt('completed_work_sessions') ?? 0;
-
-    final sessionJson = prefs.getString('current_session');
-    if (sessionJson != null) {
-      try {
-        final sessionData = jsonDecode(sessionJson) as Map<String, dynamic>;
-        final startTime = DateTime.fromMillisecondsSinceEpoch(
-            sessionData['startTime'] as int);
-        final timeSinceStart = DateTime.now().difference(startTime);
-
-        if (timeSinceStart.inHours < 24) {
-          _currentSession = PomodoroSession(
-            id: sessionData['id'] as String,
-            type: PomodoroType.values.firstWhere(
-              (type) => type.name == sessionData['type'] as String,
-              orElse: () => PomodoroType.work,
-            ),
-            startTime: startTime,
-            durationMinutes: sessionData['durationMinutes'] as int,
-            taskDescription: sessionData['taskDescription'] as String?,
-          );
-
-          final totalDuration =
-              Duration(minutes: _currentSession!.durationMinutes);
-          final elapsed = DateTime.now().difference(_currentSession!.startTime);
-          final remaining = totalDuration - elapsed;
-
-          if (remaining.inSeconds > 0) {
-            _currentSession = _currentSession!.copyWith(
-              timeSpentSeconds: elapsed.inSeconds,
-              status: SessionStatus.values.firstWhere(
-                (status) => status.name == sessionData['status'] as String,
-                orElse: () => SessionStatus.paused,
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        print('Error loading saved session in background service: $e');
-        await prefs.remove('current_session');
-      }
-    }
+    // No persistence - start fresh
+    _completedWorkSessions = 0;
+    _currentSession = null;
   }
 
   static Future<void> stopService() async {

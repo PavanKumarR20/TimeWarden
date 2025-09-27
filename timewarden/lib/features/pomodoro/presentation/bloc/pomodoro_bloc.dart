@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:uuid/uuid.dart';
 import '../../domain/entities/pomodoro_session.dart';
 import '../../domain/entities/pomodoro_settings.dart';
@@ -57,103 +57,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
   // Persistence methods
   Future<void> _saveState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('completed_work_sessions', _completedWorkSessions);
-
-    // Save current session if exists
-    if (_currentSession != null) {
-      final sessionData = {
-        'id': _currentSession!.id,
-        'type': _currentSession!.type.name,
-        'startTime': _currentSession!.startTime.millisecondsSinceEpoch,
-        'durationMinutes': _currentSession!.durationMinutes,
-        'timeSpentSeconds': _currentSession!.timeSpentSeconds,
-        'status': _currentSession!.status.name,
-        'taskDescription': _currentSession!.taskDescription,
-      };
-      await prefs.setString('current_session', jsonEncode(sessionData));
-    } else {
-      await prefs.remove('current_session');
-    }
+    // No persistence - removed to keep simple Pomodoro functionality
   }
 
   Future<void> _loadState() async {
-    final prefs = await SharedPreferences.getInstance();
-    _completedWorkSessions = prefs.getInt('completed_work_sessions') ?? 0;
-
-    // Load current session if exists
-    final sessionJson = prefs.getString('current_session');
-    if (sessionJson != null) {
-      try {
-        final sessionData = jsonDecode(sessionJson) as Map<String, dynamic>;
-
-        // Check if session was saved recently (within last 24 hours)
-        final startTime = DateTime.fromMillisecondsSinceEpoch(
-            sessionData['startTime'] as int);
-        final timeSinceStart = DateTime.now().difference(startTime);
-
-        if (timeSinceStart.inHours < 24) {
-          _currentSession = PomodoroSession(
-            id: sessionData['id'] as String,
-            type: PomodoroType.values.firstWhere(
-              (type) => type.name == sessionData['type'] as String,
-              orElse: () => PomodoroType.work,
-            ),
-            startTime: startTime,
-            durationMinutes: sessionData['durationMinutes'] as int,
-            taskDescription: sessionData['taskDescription'] as String?,
-          );
-
-          // Update remaining time based on current time
-          final totalDuration =
-              Duration(minutes: _currentSession!.durationMinutes);
-          final elapsed = DateTime.now().difference(_currentSession!.startTime);
-          final remaining = totalDuration - elapsed;
-
-          if (remaining.inSeconds > 0) {
-            final timeSpent = elapsed.inSeconds;
-            _currentSession = _currentSession!.copyWith(
-              timeSpentSeconds: timeSpent,
-              status: SessionStatus.values.firstWhere(
-                (status) => status.name == sessionData['status'] as String,
-                orElse: () => SessionStatus.paused,
-              ),
-            );
-            print(
-                'PomodoroBloc: Loaded session with ${remaining.inSeconds} seconds remaining');
-          } else {
-            // Session has expired while app was closed
-            print(
-                'PomodoroBloc: Loaded session has expired, completing it automatically');
-
-            // Mark session as completed and add to history
-            final expiredSession = _currentSession!.copyWith(
-              status: SessionStatus.completed,
-              endTime: _currentSession!.startTime.add(totalDuration),
-              timeSpentSeconds: _currentSession!.totalDurationSeconds,
-            );
-            _sessions.add(expiredSession);
-
-            // If it was a work session, increment completed work sessions
-            if (expiredSession.type == PomodoroType.work) {
-              _completedWorkSessions++;
-            }
-
-            // Clear current session since it's completed
-            _currentSession = null;
-            await prefs.remove('current_session');
-            await prefs.setInt(
-                'completed_work_sessions', _completedWorkSessions);
-
-            print(
-                'PomodoroBloc: Expired session completed and added to history');
-          }
-        }
-      } catch (e) {
-        print('Error loading saved session: $e');
-        await prefs.remove('current_session');
-      }
-    }
+    // No persistence - start fresh each time
+    _completedWorkSessions = 0;
+    _currentSession = null;
   }
 
   @override
@@ -221,13 +131,20 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     try {
+      print('PomodoroBloc: Start requested - _settings: $_settings');
       HapticService.pomodoroStart();
       print(
           'PomodoroBloc: Starting new session, notifications enabled: ${_settings.enableNotifications}');
 
+      print('PomodoroBloc: Getting next session type...');
       final sessionType = _getNextSessionType();
-      final duration = _getDurationForType(sessionType);
+      print('PomodoroBloc: Session type: $sessionType');
 
+      print('PomodoroBloc: Getting duration for type...');
+      final duration = _getDurationForType(sessionType);
+      print('PomodoroBloc: Duration: $duration');
+
+      print('PomodoroBloc: Creating PomodoroSession...');
       _currentSession = PomodoroSession(
         id: const Uuid().v4(),
         type: sessionType,
@@ -236,6 +153,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         status: SessionStatus.active,
         taskDescription: event.taskDescription,
       );
+      print('PomodoroBloc: Session created successfully');
 
       // Play appropriate start sound
       if (sessionType == PomodoroType.work) {
@@ -692,21 +610,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   }
 
   PomodoroType _getNextSessionType() {
+    // Since we removed persistence, always start with work
+    // Simple logic: work sessions get breaks, breaks get work
     if (_completedWorkSessions > 0 &&
         _completedWorkSessions % _settings.sessionsUntilLongBreak == 0) {
       return PomodoroType.longBreak;
     }
 
-    // If last session was work, next should be break
-    if (_sessions.isNotEmpty) {
-      final lastSession = _sessions.last;
-      if (lastSession.type == PomodoroType.work && lastSession.isCompleted) {
-        return _isLongBreakNext()
-            ? PomodoroType.longBreak
-            : PomodoroType.shortBreak;
-      }
-    }
-
+    // For now, since we have no persistence, always start with work
+    // Could be enhanced later with simple alternating logic
     return PomodoroType.work;
   }
 
@@ -835,11 +747,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Reset work sessions count to 0 (fresh start)
       _completedWorkSessions = 0;
 
-      // Clear saved state from storage
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('current_session');
-      await prefs.setInt('completed_work_sessions', 0);
-      print('PomodoroBloc: Cleared saved state from storage');
+      // No persistence - just reset in memory
+      print('PomodoroBloc: Reset completed - no persistence');
 
       // Emit ready state (clean slate)
       emit(PomodoroReady(
