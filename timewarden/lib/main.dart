@@ -9,6 +9,7 @@ import 'firebase_options_secure.dart';
 import 'core/services/log_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/pomodoro_background_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/auth_wrapper.dart';
@@ -52,6 +53,9 @@ void main() async {
 
   // Initialize notification service
   await NotificationService().initialize();
+
+  // Initialize background service
+  await PomodoroBackgroundService.initialize();
 
   runApp(const TimeWardenApp());
 }

@@ -556,9 +556,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         title: Text(habit.name),
-                        subtitle: Text(habit.description?.isNotEmpty == true
-                            ? habit.description!
-                            : 'Tap to complete'),
+                        subtitle: const Text('Tap to complete'),
                         onTap: () async {
                           // Complete the habit
                           context.read<HabitsBloc>().add(HabitCompletionToggled(

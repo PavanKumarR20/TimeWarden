@@ -21,7 +21,7 @@ class AddEditHabitPage extends StatefulWidget {
 class _AddEditHabitPageState extends State<AddEditHabitPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
+  // Description removed per new requirements
   final _notesController = TextEditingController();
 
   HabitFrequency _selectedFrequency = const HabitFrequency(
@@ -78,7 +78,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
     super.initState();
     if (widget.habit != null) {
       _nameController.text = widget.habit!.name;
-      _descriptionController.text = widget.habit!.description ?? '';
       _notesController.text = widget.habit!.notes ?? '';
       _selectedFrequency = widget.habit!.frequency;
       _selectedColor = widget.habit!.color;
@@ -100,7 +99,6 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   @override
   void dispose() {
     _nameController.dispose();
-    _descriptionController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -111,9 +109,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
         final habit = widget.isEditing
             ? widget.habit!.copyWith(
                 name: _nameController.text.trim(),
-                description: _descriptionController.text.trim().isEmpty
-                    ? null
-                    : _descriptionController.text.trim(),
+                // description removed
                 notes: _notesController.text.trim().isEmpty
                     ? null
                     : _notesController.text.trim(),
@@ -127,9 +123,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             : Habit(
                 id: const Uuid().v4(),
                 name: _nameController.text.trim(),
-                description: _descriptionController.text.trim().isEmpty
-                    ? null
-                    : _descriptionController.text.trim(),
+                // description removed
                 notes: _notesController.text.trim().isEmpty
                     ? null
                     : _notesController.text.trim(),
@@ -155,7 +149,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             habitName: habit.name,
             hour: _reminderTime.hour,
             minute: _reminderTime.minute,
-            description: habit.description,
+            // description removed
           );
         }
 
@@ -240,17 +234,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
             ),
             const SizedBox(height: 16),
 
-            // Description field
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.description_outlined),
-              ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
+            // Description field removed
 
             // Notes field
             TextFormField(

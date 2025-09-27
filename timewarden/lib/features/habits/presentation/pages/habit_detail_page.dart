@@ -73,8 +73,7 @@ class HabitDetailPage extends StatelessWidget {
                 children: [
                   // Main question
                   Text(
-                    habit.description ??
-                        'Did you ${habit.name.toLowerCase()} today?',
+                    'Did you ${habit.name.toLowerCase()} today?',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -106,7 +105,7 @@ class HabitDetailPage extends StatelessWidget {
               ),
             ),
 
-            // Content section
+            // Content section (scrollable)
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -117,20 +116,32 @@ class HabitDetailPage extends StatelessWidget {
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (habit.notes != null && habit.notes!.isNotEmpty) ...[
-                        _buildNotesSection(context),
-                        const SizedBox(height: 32),
-                      ],
-                      _buildStatsSection(context),
-                      const SizedBox(height: 32),
-                      _buildQuickActions(context),
-                    ],
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (habit.notes != null &&
+                                  habit.notes!.isNotEmpty) ...[
+                                _buildNotesSection(context),
+                                const SizedBox(height: 32),
+                              ],
+                              _buildStatsSection(context),
+                              const SizedBox(height: 32),
+                              _buildQuickActions(context),
+                              const Spacer(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
