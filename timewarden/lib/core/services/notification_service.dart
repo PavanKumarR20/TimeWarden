@@ -92,7 +92,13 @@ class NotificationService {
 
   Future<void> _requestPermissions() async {
     if (defaultTargetPlatform == TargetPlatform.android) {
+      // Request standard notification permission
       await Permission.notification.request();
+
+      // Request schedule exact alarm permission for Android 12+ (needed for precise timer notifications)
+      await Permission.scheduleExactAlarm.request();
+
+      debugPrint('NotificationService: Android permissions requested');
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       await _flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
