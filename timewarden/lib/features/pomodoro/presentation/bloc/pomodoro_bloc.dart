@@ -9,13 +9,11 @@ import '../../domain/entities/pomodoro_statistics.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/audio_service.dart';
-import '../../../../core/services/pomodoro_background_service.dart';
 import 'pomodoro_event.dart';
 import 'pomodoro_state.dart';
 
 class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   Timer? _timer;
-  Timer? _syncTimer; // Timer to sync with background service
   PomodoroSession? _currentSession;
   PomodoroSettings _settings = const PomodoroSettings();
   final List<PomodoroSession> _sessions = [];
@@ -40,9 +38,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
     // Initialize audio service
     _initializeAudioService();
-
-    // Start sync timer to periodically sync with background service
-    _startSyncTimer();
   }
 
   Future<void> _initializeAudioService() async {
@@ -69,7 +64,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   @override
   Future<void> close() {
     _timer?.cancel();
-    _syncTimer?.cancel();
     _audioService.dispose();
     return super.close();
   }
@@ -84,43 +78,12 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Load saved state
       await _loadState();
 
-      // If we have a saved session, emit the appropriate state
-      if (_currentSession != null) {
-        if (_currentSession!.status == SessionStatus.paused) {
-          emit(PomodoroPaused(
-            currentSession: _currentSession!,
-            settings: _settings,
-            completedWorkSessions: _completedWorkSessions,
-            isLongBreakNext: _isLongBreakNext(),
-          ));
-        } else if (_currentSession!.status == SessionStatus.active) {
-          // Start background service if not running
-          final isServiceRunning = await PomodoroBackgroundService.isRunning;
-          if (!isServiceRunning) {
-            await PomodoroBackgroundService.startService();
-            // Resume the timer in background service
-            await PomodoroBackgroundService.resumeTimer();
-          }
-          emit(PomodoroRunning(
-            currentSession: _currentSession!,
-            settings: _settings,
-            completedWorkSessions: _completedWorkSessions,
-            isLongBreakNext: _isLongBreakNext(),
-          ));
-        } else {
-          emit(PomodoroReady(
-            settings: _settings,
-            completedWorkSessions: _completedWorkSessions,
-            isLongBreakNext: _isLongBreakNext(),
-          ));
-        }
-      } else {
-        emit(PomodoroReady(
-          settings: _settings,
-          completedWorkSessions: _completedWorkSessions,
-          isLongBreakNext: _isLongBreakNext(),
-        ));
-      }
+      // Since persistence is removed, always start with ready state
+      emit(PomodoroReady(
+        settings: _settings,
+        completedWorkSessions: _completedWorkSessions,
+        isLongBreakNext: _isLongBreakNext(),
+      ));
     } catch (e) {
       emit(PomodoroError('Failed to load Pomodoro: $e'));
     }
@@ -153,39 +116,43 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         status: SessionStatus.active,
         taskDescription: event.taskDescription,
       );
-      print('PomodoroBloc: Session created successfully');
+      print(
+          'PomodoroBloc: Session created successfully - ID: ${_currentSession!.id}');
 
       // Play appropriate start sound
-      if (sessionType == PomodoroType.work) {
-        print('PomodoroBloc: Playing work session start sound');
-        await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
-      } else {
-        print('PomodoroBloc: Playing break session start sound');
-        await _audioService.playPomodoroSound(PomodoroSoundType.breakStart);
+      try {
+        if (sessionType == PomodoroType.work) {
+          print('PomodoroBloc: Playing work session start sound');
+          await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
+        } else {
+          print('PomodoroBloc: Playing break session start sound');
+          await _audioService.playPomodoroSound(PomodoroSoundType.breakStart);
+        }
+      } catch (e) {
+        print('PomodoroBloc: Error playing sound: $e');
+        // Continue execution even if sound fails
       }
 
-      // Start background service if not running
-      final isServiceRunning = await PomodoroBackgroundService.isRunning;
-      if (!isServiceRunning) {
-        await PomodoroBackgroundService.startService();
+      // Start simple timer
+      print('PomodoroBloc: Starting simple timer for ${duration} minutes');
+      _startTimer();
+
+      // Verify _currentSession is still not null before emitting
+      if (_currentSession == null) {
+        print(
+            'PomodoroBloc: ERROR - _currentSession became null after background service calls');
+        throw Exception('Current session became null unexpectedly');
       }
 
-      // Start timer in background service
-      await PomodoroBackgroundService.startTimer(
-        sessionType: sessionType,
-        durationMinutes: duration,
-        taskDescription: event.taskDescription,
-      );
-
-      // Update settings in background service
-      await PomodoroBackgroundService.updateSettings(_settings);
-
+      print(
+          'PomodoroBloc: Emitting PomodoroRunning state with session ID: ${_currentSession!.id}');
       emit(PomodoroRunning(
         currentSession: _currentSession!,
         settings: _settings,
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
+      print('PomodoroBloc: Successfully emitted PomodoroRunning state');
 
       // Save state
       await _saveState();
@@ -205,8 +172,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Play pause sound
       await _audioService.playPomodoroSound(PomodoroSoundType.sessionPause);
 
-      // Pause timer in background service
-      await PomodoroBackgroundService.pauseTimer();
+      // Pause simple timer
+      _timer?.cancel();
 
       _currentSession = _currentSession!.copyWith(
         status: SessionStatus.paused,
@@ -219,9 +186,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
-
-      // Save state
-      await _saveState();
 
       // Update notification to show paused state
       await _updateNotification();
@@ -243,8 +207,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         resumedAt: [..._currentSession!.resumedAt, DateTime.now()],
       );
 
-      // Resume timer in background service
-      await PomodoroBackgroundService.resumeTimer();
+      // Resume simple timer
+      _startTimer();
 
       emit(PomodoroRunning(
         currentSession: _currentSession!,
@@ -252,9 +216,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
-
-      // Save state
-      await _saveState();
 
       // Update notification to show running state
       await _updateNotification();
@@ -267,8 +228,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     HapticService.buttonTap();
 
-    // Stop timer in background service
-    await PomodoroBackgroundService.stopTimer();
+    // Stop simple timer
+    _timer?.cancel();
 
     if (_currentSession != null) {
       _currentSession = _currentSession!.copyWith(
@@ -279,9 +240,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     }
 
     _currentSession = null;
-
-    // Save state (clear saved session)
-    await _saveState();
 
     emit(PomodoroReady(
       settings: _settings,
@@ -298,8 +256,26 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     if (_currentSession != null) {
+      // Calculate actual elapsed time accounting for pauses
+      final now = DateTime.now();
+      final totalElapsed = now.difference(_currentSession!.startTime).inSeconds;
+
+      // Calculate paused time
+      int pausedSeconds = 0;
+      for (int i = 0; i < _currentSession!.pausedAt.length; i++) {
+        final pauseStart = _currentSession!.pausedAt[i];
+        final resumeTime = i < _currentSession!.resumedAt.length
+            ? _currentSession!.resumedAt[i]
+            : (_currentSession!.status == SessionStatus.paused
+                ? now
+                : pauseStart);
+        pausedSeconds += resumeTime.difference(pauseStart).inSeconds;
+      }
+
+      final activeSeconds = totalElapsed - pausedSeconds;
+
       _currentSession = _currentSession!.copyWith(
-        timeSpentSeconds: event.secondsElapsed,
+        timeSpentSeconds: activeSeconds,
       );
 
       if (_currentSession!.remainingSeconds <= 0) {
@@ -480,15 +456,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       print(
           'PomodoroBloc: Created new work session (ID: $sessionId, Duration: ${_settings.workDurationMinutes}min)');
 
-      // Start timer for new work session
-      await PomodoroBackgroundService.startTimer(
-        sessionType: PomodoroType.work,
-        durationMinutes: _settings.workDurationMinutes,
-        taskDescription: currentSession.taskDescription,
-      );
-
-      // Update settings in background service
-      await PomodoroBackgroundService.updateSettings(_settings);
+      // Start simple timer for new work session
+      _startTimer();
 
       // Play work start sound
       await _audioService.playPomodoroSound(PomodoroSoundType.sessionStart);
@@ -601,11 +570,17 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     }
   }
 
-  void _startSyncTimer() {
-    _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Sync with background service by reloading state
-      add(const PomodoroTimeSyncRequested());
+  void _startTimer() {
+    _timer?.cancel();
+    print('PomodoroBloc: Starting simple timer');
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_currentSession != null &&
+          _currentSession!.status == SessionStatus.active) {
+        final elapsed =
+            DateTime.now().difference(_currentSession!.startTime).inSeconds;
+        add(PomodoroTick(elapsed));
+      }
     });
   }
 
@@ -673,42 +648,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     await _notificationService.cancelPomodoroNotification();
   }
 
-  // Sync timer with actual elapsed time (fixes background timer issues)
+  // Time sync no longer needed since we removed background service
   Future<void> _onTimeSyncRequested(
     PomodoroTimeSyncRequested event,
     Emitter<PomodoroState> emit,
   ) async {
-    // Reload state from shared preferences to sync with background service
-    await _loadState();
-
-    // Emit current state based on loaded session
-    if (_currentSession != null) {
-      if (_currentSession!.status == SessionStatus.paused) {
-        emit(PomodoroPaused(
-          currentSession: _currentSession!,
-          settings: _settings,
-          completedWorkSessions: _completedWorkSessions,
-          isLongBreakNext: _isLongBreakNext(),
-        ));
-      } else if (_currentSession!.status == SessionStatus.active) {
-        if (_currentSession!.remainingSeconds <= 0) {
-          add(const PomodoroCompleted());
-        } else {
-          emit(PomodoroRunning(
-            currentSession: _currentSession!,
-            settings: _settings,
-            completedWorkSessions: _completedWorkSessions,
-            isLongBreakNext: _isLongBreakNext(),
-          ));
-        }
-      }
-    } else {
-      emit(PomodoroReady(
-        settings: _settings,
-        completedWorkSessions: _completedWorkSessions,
-        isLongBreakNext: _isLongBreakNext(),
-      ));
-    }
+    // No-op since we're using simple timer now
+    print('PomodoroBloc: Time sync not needed with simple timer');
   }
 
   // Reset all pomodoro state to clean slate
