@@ -19,6 +19,8 @@ import 'features/habits/presentation/bloc/habits_bloc.dart';
 import 'features/habits/data/repositories/habit_repository_impl.dart';
 import 'features/journal/presentation/bloc/journal_bloc.dart';
 import 'features/journal/data/repositories/journal_repository_impl.dart';
+import 'features/journal/presentation/bloc/goal_bloc.dart';
+import 'features/journal/data/repositories/goal_repository_impl.dart';
 import 'core/services/firebase_service.dart';
 
 void main() async {
@@ -86,6 +88,11 @@ class TimeWardenApp extends StatelessWidget {
               BlocProvider(
                 create: (context) => JournalBloc(
                   JournalRepositoryImpl(FirebaseService()),
+                ),
+              ),
+              BlocProvider(
+                create: (context) => GoalBloc(
+                  GoalRepositoryImpl(FirebaseService()),
                 ),
               ),
             ],

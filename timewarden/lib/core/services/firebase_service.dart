@@ -143,4 +143,14 @@ class FirebaseService {
     }
     return _firestore.collection('users').doc(userId).collection('streaks');
   }
+
+  // Get user goals collection
+  CollectionReference getUserGoals(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception(
+          'Unauthorized access: User can only access their own goals');
+    }
+    return _firestore.collection('users').doc(userId).collection('goals');
+  }
 }

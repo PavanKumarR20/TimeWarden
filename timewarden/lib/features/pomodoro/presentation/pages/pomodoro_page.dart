@@ -44,7 +44,8 @@ class _PomodoroPageState extends State<PomodoroPage>
 
     // Log lifecycle changes for debugging
     if (state == AppLifecycleState.resumed) {
-      print('PomodoroPage: App resumed - timer should continue running');
+      print(
+          'PomodoroPage: App resumed - timer should continue running with direct timer');
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       print(
