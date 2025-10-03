@@ -24,6 +24,8 @@ class PomodoroBackgroundService {
   static ServiceInstance?
       _serviceInstance; // Store service instance for immediate broadcasts
   static int _completedWorkSessions = 0;
+  static Set<String> _notifiedSessions =
+      {}; // Track sessions that were already notified
 
   static Future<void> initialize() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -89,6 +91,9 @@ class PomodoroBackgroundService {
     service
         .on('updateSettings')
         .listen((event) => _handleUpdateSettings(event));
+    service
+        .on('clearNotificationTracking')
+        .listen((event) => _clearNotificationTracking());
     service.on('stopService').listen((event) => _handleStopService());
 
     // Handle requests for current session state from main app
@@ -216,6 +221,9 @@ class PomodoroBackgroundService {
   static Future<void> _handleStopTimer() async {
     _currentSession = null;
     await _saveSessionState();
+
+    // Clear notification tracking for stopped sessions to allow fresh starts
+    _clearNotificationTracking();
 
     // Immediately broadcast the stopped state (null session) to prevent sync timer override
     if (_serviceInstance != null) {
@@ -359,14 +367,31 @@ class PomodoroBackgroundService {
     _timer?.cancel();
     _currentSession = null;
 
+    // Clear notification tracking when service stops
+    _clearNotificationTracking();
+
     // Show service closed notification
     await _showServiceClosedNotification();
 
     FlutterBackgroundService().invoke('serviceStopped');
   }
 
+  /// Clear notification tracking to allow fresh notifications for new sessions
+  static void _clearNotificationTracking() {
+    _notifiedSessions.clear();
+    print('BackgroundService: Cleared notification tracking set');
+  }
+
   static Future<void> _handleSessionCompleted(ServiceInstance service) async {
     if (_currentSession == null) return;
+
+    // Check if we already notified for this session to prevent duplicates
+    if (_notifiedSessions.contains(_currentSession!.id)) {
+      return;
+    }
+
+    // Mark this session as notified
+    _notifiedSessions.add(_currentSession!.id);
 
     // Show completion notification with sound
     if (_settings?.enableNotifications == true) {
@@ -506,6 +531,7 @@ class PomodoroBackgroundService {
     // No persistence - start fresh
     _completedWorkSessions = 0;
     _currentSession = null;
+    _notifiedSessions.clear(); // Clear notification history
   }
 
   static Future<void> stopService() async {
@@ -550,6 +576,11 @@ class PomodoroBackgroundService {
 
   static Future<void> stopTimer() async {
     FlutterBackgroundService().invoke('stopTimer');
+  }
+
+  /// Clear notification tracking to allow fresh notifications for new sessions
+  static Future<void> clearNotificationTracking() async {
+    FlutterBackgroundService().invoke('clearNotificationTracking');
   }
 
   static Future<void> updateSettings(PomodoroSettings settings) async {

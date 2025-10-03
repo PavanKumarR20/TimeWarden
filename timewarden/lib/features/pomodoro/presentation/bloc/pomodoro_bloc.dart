@@ -358,6 +358,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     // Cancel notification
     await _cancelNotification();
 
+    // Clear notification tracking in background service for fresh starts
+    await PomodoroBackgroundService.clearNotificationTracking();
+    print('PomodoroBloc: Notification tracking cleared');
+
     print('PomodoroBloc: Timer stopped successfully');
   }
 
@@ -416,21 +420,25 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         HapticService.pomodoroComplete();
       }
 
-      // Play completion sound based on session type (in-app sound)
-      // This works when app is in foreground
-      if (_currentSession!.type == PomodoroType.work) {
-        await _audioService
-            .playPomodoroSound(PomodoroSoundType.sessionComplete);
-      } else if (_currentSession!.type == PomodoroType.longBreak) {
-        await _audioService
-            .playPomodoroSound(PomodoroSoundType.finalBreakComplete);
-      } else {
-        await _audioService.playPomodoroSound(PomodoroSoundType.breakComplete);
+      // Only play sound if requested (avoid duplicate sounds from background service)
+      if (event.playSound && _settings.enableSounds) {
+        // Play completion sound based on session type (in-app sound)
+        // This works when app is in foreground
+        if (_currentSession!.type == PomodoroType.work) {
+          await _audioService
+              .playPomodoroSound(PomodoroSoundType.sessionComplete);
+        } else if (_currentSession!.type == PomodoroType.longBreak) {
+          await _audioService
+              .playPomodoroSound(PomodoroSoundType.finalBreakComplete);
+        } else {
+          await _audioService
+              .playPomodoroSound(PomodoroSoundType.breakComplete);
+        }
       }
 
-      // Show completion notification with custom sound for background alerts
-      // This ensures sound plays even when app is backgrounded
-      if (_settings.enableNotifications) {
+      // Only show notification if this completion is not from background service
+      // (to avoid duplicate notifications)
+      if (_settings.enableNotifications && event.playSound) {
         final sessionTypeName = _currentSession!.type == PomodoroType.work
             ? 'Work'
             : _currentSession!.type == PomodoroType.longBreak
@@ -896,6 +904,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Cancel any notifications
       await _cancelNotification();
       print('PomodoroBloc: Notifications cancelled');
+
+      // Clear notification tracking in background service for fresh starts
+      await PomodoroBackgroundService.clearNotificationTracking();
+      print('PomodoroBloc: Notification tracking cleared');
 
       // No persistence - just reset in memory
       print('PomodoroBloc: Reset completed - no persistence');

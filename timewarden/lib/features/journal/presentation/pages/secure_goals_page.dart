@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../../core/services/security/security_service.dart';
-import 'journal_page.dart';
+import '../widgets/goals_page_content.dart';
 import '../widgets/journal_lock_screen.dart';
 
-class SecureJournalPage extends StatefulWidget {
-  const SecureJournalPage({super.key});
+class SecureGoalsPage extends StatefulWidget {
+  const SecureGoalsPage({super.key});
 
   @override
-  State<SecureJournalPage> createState() => _SecureJournalPageState();
+  State<SecureGoalsPage> createState() => _SecureGoalsPageState();
 }
 
-class _SecureJournalPageState extends State<SecureJournalPage>
+class _SecureGoalsPageState extends State<SecureGoalsPage>
     with WidgetsBindingObserver {
   bool _isUnlocked = false;
   bool _isLoading = true;
@@ -33,11 +33,11 @@ class _SecureJournalPageState extends State<SecureJournalPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Lock journal when app goes to background
+    // Lock when app goes to background
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      _lockJournal();
+      _lockGoals();
     }
 
     // Check lock status when app resumes
@@ -69,6 +69,7 @@ class _SecureJournalPageState extends State<SecureJournalPage>
         _isLoading = false;
       });
     } catch (e) {
+      // Handle error silently like in SecureJournalPage
       setState(() {
         _isUnlocked = false;
         _isLoading = false;
@@ -76,7 +77,7 @@ class _SecureJournalPageState extends State<SecureJournalPage>
     }
   }
 
-  Future<void> _lockJournal() async {
+  Future<void> _lockGoals() async {
     try {
       await _securityService.lockJournal();
       setState(() {
@@ -109,6 +110,6 @@ class _SecureJournalPageState extends State<SecureJournalPage>
       );
     }
 
-    return const JournalPage();
+    return const GoalsPageContent();
   }
 }

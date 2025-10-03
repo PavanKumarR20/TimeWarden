@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/security/security_service.dart';
 
 class JournalPinVerificationDialog extends StatefulWidget {
   final VoidCallback onUnlocked;
@@ -19,6 +19,7 @@ class _JournalPinVerificationDialogState
     extends State<JournalPinVerificationDialog> {
   String _pin = '';
   String? _errorMessage;
+  final SecurityService _securityService = SecurityService.instance;
 
   void _addDigit(String digit) {
     HapticService.selectionClick();
@@ -45,14 +46,15 @@ class _JournalPinVerificationDialogState
 
   Future<void> _verifyPin() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final storedPin = prefs.getString('journal_pin');
+      final isUnlocked = await _securityService.unlockJournalWithPin(_pin);
 
-      if (storedPin == _pin) {
-        // Store unlock timestamp
-        await prefs.setInt('journal_unlocked_timestamp',
-            DateTime.now().millisecondsSinceEpoch);
+      if (isUnlocked) {
         HapticService.heavyImpact();
+        // Close the dialog first
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        // Then call the unlock callback
         widget.onUnlocked();
       } else {
         setState(() {
