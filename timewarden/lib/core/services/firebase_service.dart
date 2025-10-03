@@ -153,4 +153,14 @@ class FirebaseService {
     }
     return _firestore.collection('users').doc(userId).collection('goals');
   }
+
+  // Get user security document
+  DocumentReference getUserSecurity(String userId) {
+    // Security check: ensure current user can only access their own data
+    if (currentUserId == null || currentUserId != userId) {
+      throw Exception(
+          'Unauthorized access: User can only access their own security settings');
+    }
+    return _firestore.collection('users').doc(userId);
+  }
 }

@@ -346,21 +346,21 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                   int currentStreak = 0;
 
                   if (habitsState is HabitsLoaded) {
-                    final today = DateTime.now();
-
-                    // Only count habits that are NOT completed for the current period
-                    // This excludes habits that have already met their weekly/monthly target
+                    // Count all habits that should be done today (active habits)
+                    // Include all habits that haven't met their period target OR are daily habits
                     final activeHabitsForToday =
                         habitsState.habits.where((habit) {
+                      // Always include daily habits
+                      if (habit.frequency.type == HabitFrequencyType.daily) {
+                        return true;
+                      }
+                      // For other frequencies, include if not completed for period
                       return !habit.isCompletedForCurrentPeriod;
                     }).toList();
 
                     totalHabits = activeHabitsForToday.length;
                     completedHabits = activeHabitsForToday.where((habit) {
-                      return habit.completedDates.any((date) =>
-                          date.year == today.year &&
-                          date.month == today.month &&
-                          date.day == today.day);
+                      return habit.isCompletedToday;
                     }).length;
 
                     // Calculate daily completion streak - only counts days where ALL habits were completed
@@ -404,7 +404,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
                           Expanded(
                             child: _buildStatCard(
                               context,
-                              'Days of Discipline',
+                              'Perfect Days',
                               '$currentStreak days',
                               Icons.local_fire_department,
                               Colors.red,
@@ -819,9 +819,16 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
 
     // For each date, check if ALL habits were completed
     for (final date in allCompletionDates) {
-      bool allHabitsCompletedOnDate = true;
+      // Get habits that were active on this date (existed and should be done)
+      final activeHabitsOnDate = habits.where((habit) {
+        // Check if habit existed on this date (created before or on this date)
+        return habit.createdAt.isBefore(date.add(const Duration(days: 1)));
+      }).toList();
 
-      for (final habit in habits) {
+      if (activeHabitsOnDate.isEmpty) continue;
+
+      bool allHabitsCompletedOnDate = true;
+      for (final habit in activeHabitsOnDate) {
         // Check if this habit was completed on this date
         bool habitCompletedOnDate = habit.completedDates.any((completedDate) =>
             completedDate.year == date.year &&

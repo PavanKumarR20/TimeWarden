@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/security/security_service.dart';
 import 'journal_pin_verification_dialog.dart';
 
 class JournalLockScreen extends StatefulWidget {
@@ -17,6 +17,7 @@ class JournalLockScreen extends StatefulWidget {
 
 class _JournalLockScreenState extends State<JournalLockScreen> {
   bool _isLoading = true;
+  final SecurityService _securityService = SecurityService.instance;
 
   @override
   void initState() {
@@ -30,26 +31,18 @@ class _JournalLockScreenState extends State<JournalLockScreen> {
     });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLocked = prefs.getBool('journal_locked') ?? false;
+      final isLockEnabled = await _securityService.isJournalLockEnabled();
 
-      if (!isLocked) {
+      if (!isLockEnabled) {
         widget.onUnlocked();
         return;
       }
 
-      // Check if still unlocked (within auto-lock duration)
-      final unlockedTimestamp = prefs.getInt('journal_unlocked_timestamp');
-      if (unlockedTimestamp != null) {
-        final unlockedTime =
-            DateTime.fromMillisecondsSinceEpoch(unlockedTimestamp);
-        final now = DateTime.now();
-        const autoLockDuration = Duration(minutes: 5);
-
-        if (now.difference(unlockedTime) < autoLockDuration) {
-          widget.onUnlocked();
-          return;
-        }
+      // Check if currently unlocked (within auto-lock duration)
+      final isUnlocked = await _securityService.isJournalUnlocked();
+      if (isUnlocked) {
+        widget.onUnlocked();
+        return;
       }
 
       setState(() {

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import '../../domain/entities/pomodoro_session.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/widgets/animations.dart';
@@ -36,6 +37,21 @@ class _PomodoroPageState extends State<PomodoroPage>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
+
+    _setupBackgroundServiceListener();
+  }
+
+  void _setupBackgroundServiceListener() {
+    // Listen for background service events
+    FlutterBackgroundService().on('sessionCompleted').listen((event) {
+      if (mounted) {
+        // Trigger completion in the bloc without playing sound again
+        // (sound was already played by background service notification)
+        context
+            .read<PomodoroBloc>()
+            .add(const PomodoroCompleted(playSound: false));
+      }
+    });
   }
 
   @override

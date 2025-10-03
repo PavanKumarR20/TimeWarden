@@ -29,7 +29,12 @@ class PomodoroStopRequested extends PomodoroEvent {
 }
 
 class PomodoroCompleted extends PomodoroEvent {
-  const PomodoroCompleted();
+  final bool playSound;
+
+  const PomodoroCompleted({this.playSound = true});
+
+  @override
+  List<Object?> get props => [playSound];
 }
 
 class PomodoroTick extends PomodoroEvent {

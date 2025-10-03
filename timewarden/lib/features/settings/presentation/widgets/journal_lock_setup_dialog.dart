@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/security/security_service.dart';
 
 class JournalLockSetupDialog extends StatefulWidget {
   const JournalLockSetupDialog({super.key});
@@ -15,6 +15,7 @@ class _JournalLockSetupDialogState extends State<JournalLockSetupDialog> {
   String _confirmPin = '';
   bool _isConfirmingPin = false;
   bool _isJournalLocked = false;
+  final SecurityService _securityService = SecurityService.instance;
 
   @override
   void initState() {
@@ -23,10 +24,16 @@ class _JournalLockSetupDialogState extends State<JournalLockSetupDialog> {
   }
 
   Future<void> _loadJournalLockStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _isJournalLocked = prefs.getBool('journal_locked') ?? false;
-    });
+    try {
+      final isLocked = await _securityService.isJournalLockEnabled();
+      setState(() {
+        _isJournalLocked = isLocked;
+      });
+    } catch (e) {
+      setState(() {
+        _isJournalLocked = false;
+      });
+    }
   }
 
   void _addDigit(String digit) {
@@ -85,32 +92,40 @@ class _JournalLockSetupDialogState extends State<JournalLockSetupDialog> {
   }
 
   Future<void> _savePinAndEnable() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('journal_pin', _pin);
-    await prefs.setBool('journal_locked', true);
+    try {
+      await _securityService.enableJournalLock(_pin);
 
-    HapticService.heavyImpact();
+      HapticService.heavyImpact();
 
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Journal lock enabled successfully!')),
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Journal lock enabled successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorMessage('Failed to enable journal lock. Please try again.');
+      }
     }
   }
 
   Future<void> _disableJournalLock() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('journal_pin');
-    await prefs.setBool('journal_locked', false);
+    try {
+      await _securityService.disableJournalLock();
 
-    HapticService.mediumImpact();
+      HapticService.mediumImpact();
 
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Journal lock disabled')),
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Journal lock disabled')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorMessage('Failed to disable journal lock. Please try again.');
+      }
     }
   }
 
