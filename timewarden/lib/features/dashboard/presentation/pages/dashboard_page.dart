@@ -57,14 +57,6 @@ class _DashboardPageState extends State<DashboardPage> {
     _saveSelectedTab(index);
   }
 
-  List<Widget> get _pages => [
-        DashboardHomeTab(onNavigateToTab: _onNavigateToTab),
-        const HabitsPage(),
-        const PomodoroPage(),
-        const SecureJournalPage(),
-        const SettingsPage(),
-      ];
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -139,7 +131,16 @@ class _DashboardPageState extends State<DashboardPage> {
                 surfaceTintColor: Colors.transparent,
               )
             : null,
-        body: _pages[_selectedIndex],
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            DashboardHomeTab(onNavigateToTab: _onNavigateToTab),
+            const HabitsPage(),
+            const PomodoroPage(),
+            const SecureJournalPage(),
+            const SettingsPage(),
+          ],
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) {
