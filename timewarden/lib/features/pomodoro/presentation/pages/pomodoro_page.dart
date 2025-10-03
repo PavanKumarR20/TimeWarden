@@ -42,10 +42,9 @@ class _PomodoroPageState extends State<PomodoroPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // When app comes to foreground, sync timer to fix background timing issues
+    // Log lifecycle changes for debugging
     if (state == AppLifecycleState.resumed) {
-      print('PomodoroPage: App resumed, syncing timer...');
-      context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
+      print('PomodoroPage: App resumed - timer should continue running');
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       print(
