@@ -90,17 +90,6 @@ class SettingsPage extends StatelessWidget {
                         );
                       },
                     ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.notifications),
-                      title: const Text('Notifications'),
-                      subtitle: const Text('Manage notification preferences'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        HapticService.buttonTap();
-                        _showNotificationSettings(context);
-                      },
-                    ),
                   ],
                 ),
               ),
@@ -123,6 +112,52 @@ class SettingsPage extends StatelessWidget {
                       onTap: () {
                         HapticService.buttonTap();
                         _showJournalLockSettings(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // About Section
+              Text(
+                'About',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: const Text('Version'),
+                      subtitle: const Text('1.0.0'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticService.buttonTap();
+                        _showAboutDialog(context);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.person),
+                      title: const Text('Developer'),
+                      subtitle: const Text('Pavan'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticService.buttonTap();
+                        _showAboutDialog(context);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.email),
+                      title: const Text('Contact'),
+                      subtitle: const Text('r.pavankumarr20@gmail.com'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticService.buttonTap();
+                        _showAboutDialog(context);
                       },
                     ),
                   ],
@@ -217,39 +252,6 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
-  void _showNotificationSettings(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Notification Settings'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.timer),
-              title: Text('Pomodoro Notifications'),
-              subtitle: Text('Get notified when sessions end'),
-            ),
-            ListTile(
-              leading: Icon(Icons.book),
-              title: Text('Journal Reminders'),
-              subtitle: Text('Daily journal entry reminders'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              HapticService.buttonTap();
-              Navigator.pop(context);
-            },
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showJournalLockSettings(BuildContext context) {
     showDialog(
       context: context,
@@ -285,6 +287,92 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.info_outline,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            const Text('About TimeWarden'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'TimeWarden - Your All-in-One Productivity Hub',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildAboutRow(Icons.info, 'Version', '1.0.0'),
+            const SizedBox(height: 12),
+            _buildAboutRow(Icons.person, 'Developer', 'Pavan'),
+            const SizedBox(height: 12),
+            _buildAboutRow(Icons.email, 'Contact', 'r.pavankumarr20@gmail.com'),
+            const SizedBox(height: 16),
+            const Text(
+              'A comprehensive productivity application featuring Pomodoro timer, habit tracking, secure journaling, and goal management.',
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              HapticService.buttonTap();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAboutRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: Colors.grey[600],
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
