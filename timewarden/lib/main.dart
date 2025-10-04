@@ -15,6 +15,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/auth_wrapper.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/pomodoro/presentation/bloc/pomodoro_bloc.dart';
+import 'features/pomodoro/data/repositories/pomodoro_repository_impl.dart';
 import 'features/habits/presentation/bloc/habits_bloc.dart';
 import 'features/habits/data/repositories/habit_repository_impl.dart';
 import 'features/journal/presentation/bloc/journal_bloc.dart';
@@ -78,7 +79,9 @@ class TimeWardenApp extends StatelessWidget {
                     AuthBloc(AuthRepositoryImpl(FirebaseService())),
               ),
               BlocProvider(
-                create: (context) => PomodoroBloc(),
+                create: (context) => PomodoroBloc(
+                  PomodoroRepositoryImpl(FirebaseService()),
+                ),
               ),
               BlocProvider(
                 create: (context) => HabitsBloc(

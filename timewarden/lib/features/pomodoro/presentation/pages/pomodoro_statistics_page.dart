@@ -25,16 +25,6 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
 
   void _loadStatistics() {
     context.read<PomodoroBloc>().add(const PomodoroHistoryLoadRequested());
-
-    // Add a timeout fallback
-    Future.delayed(const Duration(seconds: 10), () {
-      if (mounted &&
-          context.read<PomodoroBloc>().state is! PomodoroHistoryLoaded) {
-        // If still loading after 10 seconds, attempt retry
-        print('Statistics loading timeout, attempting to recover...');
-        context.read<PomodoroBloc>().add(const PomodoroHistoryLoadRequested());
-      }
-    });
   }
 
   @override
@@ -45,88 +35,127 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       ),
       body: BlocBuilder<PomodoroBloc, PomodoroState>(
         builder: (context, state) {
+          // Handle error state
           if (state is PomodoroError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load statistics',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    state.message,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _loadStatistics,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
+            return _buildErrorView(context, state.message);
           }
 
-          // Check if we have statistics data in the current state
-          PomodoroStatistics? todayStats;
-          List<PomodoroStatistics>? weeklyStats;
-          List<PomodoroSession>? sessions;
-
+          // Handle history loaded state
           if (state is PomodoroHistoryLoaded) {
             return _buildStatisticsView(state);
-          } else if (state is PomodoroRunning && state.todayStats != null) {
-            // Timer is running but we have statistics data
-            todayStats = state.todayStats!;
-            weeklyStats = state.weeklyStats!;
-            sessions = state.sessions!;
-          } else if (state is PomodoroPaused && state.todayStats != null) {
-            // Timer is paused but we have statistics data
-            todayStats = state.todayStats!;
-            weeklyStats = state.weeklyStats!;
-            sessions = state.sessions!;
           }
 
-          if (todayStats != null && weeklyStats != null && sessions != null) {
-            // Create a temporary PomodoroHistoryLoaded-like structure
-            final historyState = PomodoroHistoryLoaded(
-              sessions: sessions,
-              todayStats: todayStats,
-              weeklyStats: weeklyStats,
-              settings: state is PomodoroRunning
-                  ? state.settings
-                  : state is PomodoroPaused
-                      ? state.settings
-                      : const PomodoroSettings(),
-            );
-            return _buildStatisticsView(historyState);
+          // Try to extract statistics from other states
+          final statsData = _extractStatsFromState(state);
+          if (statsData != null) {
+            return _buildStatisticsView(statsData);
           }
 
-          // For any other state, try to load statistics and show loading
-          if (state is PomodoroRunning || state is PomodoroPaused) {
-            // Timer is running/paused but no statistics yet, try to load them
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                context
-                    .read<PomodoroBloc>()
-                    .add(const PomodoroHistoryLoadRequested());
-              }
-            });
-          }
-
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          // Show loading state
+          return _buildLoadingView(context);
         },
+      ),
+    );
+  }
+
+  Widget _buildErrorView(BuildContext context, String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 64,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load statistics',
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadStatistics,
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingView(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Loading statistics...'),
+        ],
+      ),
+    );
+  }
+
+  PomodoroHistoryLoaded? _extractStatsFromState(PomodoroState state) {
+    PomodoroStatistics? todayStats;
+    List<PomodoroStatistics>? weeklyStats;
+    List<PomodoroSession>? sessions;
+    PomodoroSettings settings = const PomodoroSettings();
+
+    if (state is PomodoroRunning && state.todayStats != null) {
+      todayStats = state.todayStats!;
+      weeklyStats = state.weeklyStats!;
+      sessions = state.sessions!;
+      settings = state.settings;
+    } else if (state is PomodoroPaused && state.todayStats != null) {
+      todayStats = state.todayStats!;
+      weeklyStats = state.weeklyStats!;
+      sessions = state.sessions!;
+      settings = state.settings;
+    }
+
+    if (todayStats != null && weeklyStats != null && sessions != null) {
+      return PomodoroHistoryLoaded(
+        sessions: sessions,
+        todayStats: todayStats,
+        weeklyStats: weeklyStats,
+        settings: settings,
+      );
+    }
+
+    return null;
+  }
+
+  Widget _buildEmptyChartMessage(BuildContext context, String message) {
+    return Card(
+      child: Container(
+        height: 200,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.show_chart,
+              size: 48,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -223,7 +252,7 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
                   child: _buildStatCard(
                     context,
                     'Completion Rate',
-                    '${stats.completionRate.toStringAsFixed(0)}%',
+                    '${_safePercentage(stats.completionRate)}%',
                     Icons.check_circle_outline,
                     Colors.green.shade400,
                   ),
@@ -233,7 +262,7 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
                   child: _buildStatCard(
                     context,
                     'Focus Efficiency',
-                    '${stats.focusEfficiency.toStringAsFixed(0)}%',
+                    '${_safePercentage(stats.focusEfficiency)}%',
                     Icons.trending_up,
                     Colors.orange.shade400,
                   ),
@@ -294,6 +323,10 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
 
   Widget _buildWeeklyChart(
       BuildContext context, List<PomodoroStatistics> weeklyStats) {
+    // Safety check for empty or null data
+    if (weeklyStats.isEmpty) {
+      return _buildEmptyChartMessage(context, 'No weekly data available');
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -365,11 +398,20 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
                   borderData: FlBorderData(show: false),
                   gridData: const FlGridData(show: false),
                   barGroups: weeklyStats.asMap().entries.map((entry) {
+                    // Safety check for valid data
+                    final workMinutes = entry.value.totalWorkMinutes;
+                    final safeValue =
+                        workMinutes.isNaN || workMinutes.isInfinite
+                            ? 0.0
+                            : workMinutes
+                                .clamp(0, 1440)
+                                .toDouble(); // Max 24 hours per day
+
                     return BarChartGroupData(
                       x: entry.key,
                       barRods: [
                         BarChartRodData(
-                          toY: entry.value.totalWorkMinutes.toDouble(),
+                          toY: safeValue,
                           color: Theme.of(context).colorScheme.primary,
                           width: 20,
                           borderRadius: const BorderRadius.vertical(
@@ -412,7 +454,7 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
             _buildDetailRow(context, 'Total Break Time',
                 _formatDuration(stats.totalBreakTime)),
             _buildDetailRow(context, 'Average Session Completion',
-                '${(stats.averageSessionCompletion * 100).toStringAsFixed(1)}%'),
+                '${_safePercentage(stats.averageSessionCompletion * 100)}%'),
             _buildDetailRow(
                 context, 'Cancelled Sessions', '${stats.cancelledSessions}'),
           ],
@@ -601,6 +643,11 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       case SessionStatus.pending:
         return 'Pending';
     }
+  }
+
+  String _safePercentage(double value) {
+    if (value.isNaN || value.isInfinite) return '0.0';
+    return value.clamp(0.0, 100.0).toStringAsFixed(1);
   }
 
   String _formatDuration(Duration duration) {

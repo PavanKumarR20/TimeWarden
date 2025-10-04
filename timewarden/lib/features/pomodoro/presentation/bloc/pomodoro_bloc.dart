@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../domain/entities/pomodoro_session.dart';
 import '../../domain/entities/pomodoro_settings.dart';
 import '../../domain/entities/pomodoro_statistics.dart';
+import '../../domain/repositories/pomodoro_repository.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/audio_service.dart';
@@ -24,8 +25,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   bool _hasBeenInitialized = false; // Track if BLoC has been initialized
   final NotificationService _notificationService = NotificationService();
   final AudioService _audioService = AudioService();
+  final PomodoroRepository _repository;
 
-  PomodoroBloc() : super(const PomodoroInitial()) {
+  PomodoroBloc(this._repository) : super(const PomodoroInitial()) {
     on<PomodoroLoadRequested>(_onLoadRequested);
     on<PomodoroStartRequested>(_onStartRequested);
     on<PomodoroPauseRequested>(_onPauseRequested);
@@ -37,7 +39,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     on<PomodoroSkipBreakRequested>(_onSkipBreakRequested);
     on<PomodoroSettingsUpdated>(_onSettingsUpdated);
     on<PomodoroHistoryLoadRequested>(_onHistoryLoadRequested);
-    // on<PomodoroTimeSyncRequested>(_onTimeSyncRequested); // Disabled - using direct timer
+    on<PomodoroTimeSyncRequested>(_onTimeSyncRequested);
     on<PomodoroResetRequested>(_onResetRequested);
 
     // Initialize audio service
@@ -60,8 +62,30 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   }
 
   Future<void> _loadState() async {
-    // No persistence - start fresh each time
-    _completedWorkSessions = 0;
+    // Load sessions from Firestore
+    try {
+      final sessions = await _repository.getSessions();
+      _sessions.clear();
+      _sessions.addAll(sessions);
+
+      // Count completed work sessions for today
+      final today = DateTime.now();
+      final todaySessions = sessions
+          .where((session) =>
+              session.type == PomodoroType.work &&
+              session.status == SessionStatus.completed &&
+              _isSameDay(session.startTime, today))
+          .toList();
+      _completedWorkSessions = todaySessions.length;
+
+      print(
+          'PomodoroBloc: Loaded ${sessions.length} sessions, ${_completedWorkSessions} completed work sessions today');
+    } catch (e) {
+      print('PomodoroBloc: Error loading sessions: $e');
+      _sessions.clear();
+      _completedWorkSessions = 0;
+    }
+
     _currentSession = null;
 
     // Clear any old session data from background service and SharedPreferences
@@ -344,6 +368,14 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         endTime: DateTime.now(),
       );
       _sessions.add(_currentSession!);
+
+      // Save cancelled session to repository
+      try {
+        await _repository.saveSession(_currentSession!);
+        print('PomodoroBloc: Saved cancelled session to Firestore');
+      } catch (e) {
+        print('PomodoroBloc: Error saving cancelled session to Firestore: $e');
+      }
     }
 
     _currentSession = null;
@@ -415,12 +447,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     _timer?.cancel();
 
     if (_currentSession != null) {
+      print('PomodoroBloc: Session completed - playSound: ${event.playSound}');
+
       // Provide completion feedback
       if (_settings.enableVibration) {
         HapticService.pomodoroComplete();
       }
 
-      // Only play sound if requested (avoid duplicate sounds from background service)
+      // Only play sound if requested and app is in foreground
+      // Background service handles sound when app is backgrounded
       if (event.playSound && _settings.enableSounds) {
         // Play completion sound based on session type (in-app sound)
         // This works when app is in foreground
@@ -475,6 +510,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       );
 
       _sessions.add(_currentSession!);
+
+      // Save completed session to repository
+      try {
+        await _repository.saveSession(_currentSession!);
+        print('PomodoroBloc: Saved completed session to Firestore');
+      } catch (e) {
+        print('PomodoroBloc: Error saving session to Firestore: $e');
+        // Don't emit error here, just log it - session is still tracked locally
+      }
 
       if (_currentSession!.type == PomodoroType.work) {
         _completedWorkSessions++;
@@ -553,6 +597,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
             currentSession.totalDurationSeconds, // Mark as fully completed
       );
       _sessions.add(completedBreak);
+
+      // Save skipped break session to repository
+      try {
+        await _repository.saveSession(completedBreak);
+        print('PomodoroBloc: Saved skipped break session to Firestore');
+      } catch (e) {
+        print(
+            'PomodoroBloc: Error saving skipped break session to Firestore: $e');
+      }
       print(
           'PomodoroBloc: Marked break as completed and added to sessions history');
 
@@ -635,6 +688,19 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     try {
       print('Loading Pomodoro history...');
+
+      // Refresh sessions from repository to get latest data
+      try {
+        final latestSessions = await _repository.getSessions();
+        _sessions.clear();
+        _sessions.addAll(latestSessions);
+        print(
+            'Refreshed sessions from repository: ${latestSessions.length} sessions');
+      } catch (e) {
+        print('Error refreshing sessions from repository: $e');
+        // Continue with existing sessions if repository fails
+      }
+
       final today = event.date ?? DateTime.now();
       print('Sessions count: ${_sessions.length}');
 
@@ -762,12 +828,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     await _notificationService.cancelPomodoroNotification();
   }
 
-  // Sync timer with background service
-  /* DISABLED - using direct timer approach
+  // Sync timer with background service - critical for app resume
   Future<void> _onTimeSyncRequested(
     PomodoroTimeSyncRequested event,
     Emitter<PomodoroState> emit,
   ) async {
+    print('PomodoroBloc: Time sync requested - checking background service');
+
     // Get current session state from background service
     final isServiceRunning = await PomodoroBackgroundService.isRunning;
 
@@ -775,19 +842,36 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Get fresh session state from background service
       final sessionData =
           await PomodoroBackgroundService.getCurrentSessionState();
-      print(
-          'PomodoroBloc: Sync - got session data: $sessionData'); // Debug line
+      print('PomodoroBloc: Sync - got session data: $sessionData');
 
       if (sessionData != null) {
-        // Reconstruct session from background service data
-        final type = PomodoroType.values.firstWhere(
-          (t) => t.name == sessionData['type'],
-          orElse: () => PomodoroType.work,
-        );
-
         final status = SessionStatus.values.firstWhere(
           (s) => s.name == sessionData['status'],
           orElse: () => SessionStatus.active,
+        );
+
+        // Check if session was completed while app was in background
+        if (status == SessionStatus.completed) {
+          print(
+              'PomodoroBloc: Session completed in background - cleaning up without sound');
+
+          // Stop background service and clear session without playing sound again
+          await PomodoroBackgroundService.stopService();
+          _timer?.cancel();
+          _currentSession = null;
+
+          emit(PomodoroReady(
+            settings: _settings,
+            completedWorkSessions: _completedWorkSessions,
+            isLongBreakNext: _isLongBreakNext(),
+          ));
+          return;
+        }
+
+        // Reconstruct active/paused session from background service data
+        final type = PomodoroType.values.firstWhere(
+          (t) => t.name == sessionData['type'],
+          orElse: () => PomodoroType.work,
         );
 
         final startTime =
@@ -859,7 +943,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // If we have an active session, try to start background service for it
     }
   }
-  */ // END DISABLED sync method
 
   // Reset all pomodoro state to clean slate
   Future<void> _onResetRequested(
@@ -884,6 +967,17 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           endTime: DateTime.now(),
         );
         _sessions.add(cancelledSession);
+
+        // Save cancelled session to repository
+        try {
+          await _repository.saveSession(cancelledSession);
+          print(
+              'PomodoroBloc: Saved cancelled session to Firestore (from reset)');
+        } catch (e) {
+          print(
+              'PomodoroBloc: Error saving cancelled session to Firestore (from reset): $e');
+        }
+
         print(
             'PomodoroBloc: Current session marked as cancelled and added to history');
       }
@@ -918,5 +1012,12 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       print('Stack trace: $stackTrace');
       emit(PomodoroError('Failed to reset Pomodoro: $e'));
     }
+  }
+
+  /// Helper method to check if two dates are on the same day
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 }

@@ -45,11 +45,23 @@ class _PomodoroPageState extends State<PomodoroPage>
     // Listen for background service events
     FlutterBackgroundService().on('sessionCompleted').listen((event) {
       if (mounted) {
+        print(
+            'PomodoroPage: Received sessionCompleted from background service');
         // Trigger completion in the bloc without playing sound again
         // (sound was already played by background service notification)
         context
             .read<PomodoroBloc>()
             .add(const PomodoroCompleted(playSound: false));
+      }
+    });
+
+    // Listen for session state updates from background service
+    FlutterBackgroundService().on('sessionStateUpdate').listen((event) {
+      if (mounted && event != null) {
+        print(
+            'PomodoroPage: Received sessionStateUpdate from background service');
+        // Sync with background service state
+        context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
       }
     });
   }
@@ -58,14 +70,16 @@ class _PomodoroPageState extends State<PomodoroPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // Log lifecycle changes for debugging
     if (state == AppLifecycleState.resumed) {
-      print(
-          'PomodoroPage: App resumed - timer should continue running with direct timer');
+      print('PomodoroPage: App resumed - syncing with background service');
+      // When app resumes, sync with background service to get latest state
+      if (mounted) {
+        context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
+      }
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       print(
-          'PomodoroPage: App backgrounded - completion sounds will play via notifications');
+          'PomodoroPage: App backgrounded - background service will handle completion');
     }
   }
 

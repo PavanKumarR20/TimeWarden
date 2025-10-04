@@ -6,7 +6,6 @@ import '../../../../core/widgets/animations.dart';
 import '../bloc/pomodoro_bloc.dart';
 import '../bloc/pomodoro_event.dart';
 import '../bloc/pomodoro_state.dart';
-import 'sound_test_page.dart';
 
 class PomodoroSettingsPage extends StatefulWidget {
   const PomodoroSettingsPage({super.key});
@@ -52,6 +51,39 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Description
+            Card(
+              color: Theme.of(context)
+                  .colorScheme
+                  .primaryContainer
+                  .withOpacity(0.3),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Customize your Pomodoro timer settings. Changes are saved automatically.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
             // Timer Duration Settings
             SlideInAnimation(
               child: _buildTimerSettings(context),
@@ -59,33 +91,17 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
 
             const SizedBox(height: 24),
 
-            // Automation Settings
+            // Notification & Audio Settings
             SlideInAnimation(
               delay: const Duration(milliseconds: 100),
-              child: _buildAutomationSettings(context),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Notification Settings
-            SlideInAnimation(
-              delay: const Duration(milliseconds: 200),
               child: _buildNotificationSettings(context),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Sound Settings
-            SlideInAnimation(
-              delay: const Duration(milliseconds: 300),
-              child: _buildSoundSettings(context),
             ),
 
             const SizedBox(height: 40),
 
             // Reset to Defaults
             SlideInAnimation(
-              delay: const Duration(milliseconds: 400),
+              delay: const Duration(milliseconds: 200),
               child: Center(
                 child: TextButton(
                   onPressed: _resetToDefaults,
@@ -245,52 +261,6 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
     );
   }
 
-  Widget _buildAutomationSettings(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.autorenew,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Automation',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildSwitchSetting(
-              context,
-              'Auto-start Breaks',
-              'Automatically start break sessions',
-              _settings.autoStartBreaks,
-              (value) =>
-                  _updateSettings(_settings.copyWith(autoStartBreaks: value)),
-            ),
-            const SizedBox(height: 16),
-            _buildSwitchSetting(
-              context,
-              'Auto-start Work',
-              'Automatically start work sessions after breaks',
-              _settings.autoStartWork,
-              (value) =>
-                  _updateSettings(_settings.copyWith(autoStartWork: value)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildNotificationSettings(BuildContext context) {
     return Card(
       child: Padding(
@@ -306,7 +276,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Notifications',
+                  'Notifications & Audio',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -325,48 +295,20 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
             const SizedBox(height: 16),
             _buildSwitchSetting(
               context,
-              'Enable Vibration',
-              'Vibrate when sessions complete',
-              _settings.enableVibration,
-              (value) =>
-                  _updateSettings(_settings.copyWith(enableVibration: value)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSoundSettings(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.volume_up_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Sounds',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildSwitchSetting(
-              context,
               'Enable Sounds',
               'Play sounds when sessions complete',
               _settings.enableSounds,
               (value) =>
                   _updateSettings(_settings.copyWith(enableSounds: value)),
+            ),
+            const SizedBox(height: 16),
+            _buildSwitchSetting(
+              context,
+              'Enable Vibration',
+              'Vibrate when sessions complete',
+              _settings.enableVibration,
+              (value) =>
+                  _updateSettings(_settings.copyWith(enableVibration: value)),
             ),
             if (_settings.enableSounds) ...[
               const SizedBox(height: 16),
@@ -376,73 +318,30 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Volume',
+                    'Sound Volume',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                   ),
                   const SizedBox(height: 8),
-                  Slider(
-                    value: _settings.soundVolume,
-                    onChanged: (value) {
-                      HapticService.selectionClick();
-                      _updateSettings(_settings.copyWith(soundVolume: value));
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Sound Selection
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Notification Sound',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...PomodoroSettings.availableSounds.map((sound) {
-                    return RadioListTile<String>(
-                      title: Text(sound.toUpperCase()),
-                      value: sound,
-                      groupValue: _settings.selectedSound,
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Theme.of(context).colorScheme.primary,
+                      thumbColor: Theme.of(context).colorScheme.primary,
+                      overlayColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.2),
+                    ),
+                    child: Slider(
+                      value: _settings.soundVolume,
                       onChanged: (value) {
-                        if (value != null) {
-                          HapticService.selectionClick();
-                          _updateSettings(
-                              _settings.copyWith(selectedSound: value));
-                        }
+                        HapticService.selectionClick();
+                        _updateSettings(_settings.copyWith(soundVolume: value));
                       },
-                      contentPadding: EdgeInsets.zero,
-                    );
-                  }),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Test & Customize Sounds Button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    HapticService.buttonTap();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SoundTestPage(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.music_note),
-                  label: const Text('Test & Customize Sounds'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ],
