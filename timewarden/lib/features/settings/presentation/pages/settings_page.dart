@@ -4,6 +4,7 @@ import '../../../../core/services/theme_service.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../widgets/journal_lock_setup_dialog.dart';
+import '../widgets/perfect_days_manager_dialog.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -88,6 +89,31 @@ class SettingsPage extends StatelessWidget {
                             _showThemeDialog(context, themeService);
                           },
                         );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Statistics & Data
+              Text(
+                'Statistics & Data',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.local_fire_department),
+                      title: const Text('Perfect Days Manager'),
+                      subtitle:
+                          const Text('Manually adjust perfect days counter'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        HapticService.buttonTap();
+                        _showPerfectDaysManager(context);
                       },
                     ),
                   ],
@@ -373,6 +399,13 @@ class SettingsPage extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showPerfectDaysManager(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const PerfectDaysManagerDialog(),
     );
   }
 }
