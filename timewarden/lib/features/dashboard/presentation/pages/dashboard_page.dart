@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
 import '../../../habits/domain/entities/habit.dart';
-import '../../../habits/presentation/widgets/habit_streaks_widget.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
@@ -428,10 +427,6 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
               );
             },
           ),
-          const SizedBox(height: 24),
-
-          // Habit Streaks section
-          const HabitStreaksWidget(),
           const SizedBox(height: 24),
 
           // Today's habits section
