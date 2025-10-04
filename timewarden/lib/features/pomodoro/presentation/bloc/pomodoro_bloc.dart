@@ -7,6 +7,8 @@ import '../../domain/entities/pomodoro_session.dart';
 import '../../domain/entities/pomodoro_settings.dart';
 import '../../domain/entities/pomodoro_statistics.dart';
 import '../../domain/repositories/pomodoro_repository.dart';
+import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
+import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/audio_service.dart';
@@ -26,8 +28,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   final NotificationService _notificationService = NotificationService();
   final AudioService _audioService = AudioService();
   final PomodoroRepository _repository;
+  late final UserStatsRepositoryImpl _statsRepository;
 
   PomodoroBloc(this._repository) : super(const PomodoroInitial()) {
+    _statsRepository = UserStatsRepositoryImpl(FirebaseService());
     on<PomodoroLoadRequested>(_onLoadRequested);
     on<PomodoroStartRequested>(_onStartRequested);
     on<PomodoroPauseRequested>(_onPauseRequested);
@@ -515,6 +519,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       try {
         await _repository.saveSession(_currentSession!);
         print('PomodoroBloc: Saved completed session to Firestore');
+
+        // Increment Pomodoro stats counter
+        final userId = FirebaseService().currentUserId;
+        if (userId != null) {
+          await _statsRepository.incrementPomodoroSessions(userId);
+          print('PomodoroBloc: Incremented Pomodoro stats counter');
+        }
       } catch (e) {
         print('PomodoroBloc: Error saving session to Firestore: $e');
         // Don't emit error here, just log it - session is still tracked locally

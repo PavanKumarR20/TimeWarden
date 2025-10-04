@@ -3,6 +3,9 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/habit.dart';
 import '../../domain/repositories/habit_repository.dart';
 import '../../../../core/services/log_service.dart';
+import '../../../../core/services/firebase_service.dart';
+import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Events
 abstract class HabitsEvent extends Equatable {
@@ -87,8 +90,10 @@ class HabitsError extends HabitsState {
 // BLoC - Much simpler with Future-based approach
 class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
   final HabitRepository _habitRepository;
+  late final UserStatsRepositoryImpl _statsRepository;
 
   HabitsBloc(this._habitRepository) : super(HabitsInitial()) {
+    _statsRepository = UserStatsRepositoryImpl(FirebaseService());
     on<HabitsLoadRequested>(_onHabitsLoadRequested);
     on<HabitAdded>(_onHabitAdded);
     on<HabitUpdated>(_onHabitUpdated);
@@ -187,6 +192,11 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
             date.month == dateOnly.month &&
             date.day == dateOnly.day);
 
+        print('🎯 HABIT COMPLETION TOGGLED:');
+        print('   - Habit: ${habit.name}');
+        print('   - Date: ${dateOnly.toString().split(' ')[0]}');
+        print('   - Currently completed: $isCompleted');
+
         LogService.debug(
             'Toggling completion for habit ${habit.name}, currently completed: $isCompleted',
             tag: 'HabitsBloc');
@@ -208,6 +218,9 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         final updatedHabits = List<Habit>.from(currentState.habits);
         updatedHabits[habitIndex] = updatedHabit;
 
+        print('   - Now completed: ${!isCompleted}');
+        print('🔄 Habit updated locally, emitting new state...');
+
         // Emit the updated state immediately for instant UI feedback
         emit(HabitsLoaded(updatedHabits));
 
@@ -220,6 +233,12 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
 
         LogService.debug('Habit completion toggled successfully in backend',
             tag: 'HabitsBloc');
+
+        print(
+            '🔍 Backend updated successfully, now checking for perfect day...');
+
+        // Check for perfect day completion after habit is updated
+        _checkPerfectDayCompletion(updatedHabits, event.date);
       }
     } catch (e) {
       LogService.error('Error toggling habit completion',
@@ -227,6 +246,142 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
       // Reload the data to sync with backend if there's an error
       add(HabitsLoadRequested());
       emit(HabitsError(e.toString()));
+    }
+  }
+
+  Future<void> _checkPerfectDayCompletion(
+      List<Habit> habits, DateTime date) async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      print('🔍 PERFECT DAY CHECK STARTED - User ID: $userId');
+
+      if (userId == null) {
+        print('❌ No user ID, skipping perfect day check');
+        return;
+      }
+
+      // Only check for today's perfect days
+      final today = DateTime.now();
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final todayOnly = DateTime(today.year, today.month, today.day);
+
+      print(
+          '🗓️ Checking date: ${dateOnly.toString().split(' ')[0]} vs today: ${todayOnly.toString().split(' ')[0]}');
+
+      if (dateOnly.millisecondsSinceEpoch != todayOnly.millisecondsSinceEpoch) {
+        print('❌ Date is not today, skipping perfect day check');
+        return; // Only track perfect days for today
+      }
+
+      print('📋 Total habits to analyze: ${habits.length}');
+
+      // Get habits that should be done today
+      final activeHabitsForToday = <Habit>[];
+
+      for (final habit in habits) {
+        print('🔎 Analyzing habit: ${habit.name}');
+        print('   - Frequency type: ${habit.frequency.type}');
+        print(
+            '   - Is completed for current period: ${habit.isCompletedForCurrentPeriod}');
+        print('   - Is completed today: ${habit.isCompletedToday}');
+
+        bool shouldInclude = false;
+
+        // Always include daily habits
+        if (habit.frequency.type == HabitFrequencyType.daily) {
+          shouldInclude = true;
+          print('   ✅ Including (daily habit)');
+        } else {
+          // For other frequencies, include if not completed for period
+          if (!habit.isCompletedForCurrentPeriod) {
+            shouldInclude = true;
+            print('   ✅ Including (not completed for current period)');
+          } else {
+            print('   ❌ Excluding (already completed for current period)');
+          }
+        }
+
+        if (shouldInclude) {
+          activeHabitsForToday.add(habit);
+        }
+      }
+
+      print('📊 Active habits for today: ${activeHabitsForToday.length}');
+      for (final habit in activeHabitsForToday) {
+        print(
+            '   - ${habit.name} (completed today: ${habit.isCompletedToday})');
+      }
+
+      if (activeHabitsForToday.isEmpty) {
+        print('❌ No active habits for today, skipping perfect day check');
+        return;
+      }
+
+      // Check if ALL active habits for today are completed
+      final completedHabitsToday = activeHabitsForToday.where((habit) {
+        return habit.isCompletedToday;
+      }).toList();
+
+      final isNowPerfectDay =
+          completedHabitsToday.length == activeHabitsForToday.length;
+
+      print('📈 PERFECT DAY ANALYSIS:');
+      print('   - Active habits for today: ${activeHabitsForToday.length}');
+      print('   - Completed today: ${completedHabitsToday.length}');
+      print('   - Is perfect day: $isNowPerfectDay');
+
+      if (isNowPerfectDay) {
+        // Check if we already incremented for today
+        final alreadyIncremented = await _wasAlreadyIncrementedToday(userId);
+        print('   - Already incremented today: $alreadyIncremented');
+
+        if (!alreadyIncremented) {
+          print('🚀 INCREMENTING PERFECT DAYS COUNTER...');
+          await _statsRepository.incrementPerfectDays(userId);
+          await _markTodayAsIncremented(userId);
+
+          print(
+              '🔥🔥🔥 PERFECT DAY ACHIEVED! Perfect days incremented! 🔥🔥🔥');
+          print(
+              '🎉 CONGRATULATIONS! Perfect day completed! All habits done for today!');
+
+          // Could add a notification or UI feedback here in the future
+        } else {
+          print('ℹ️ Perfect day already counted for today');
+        }
+      } else {
+        print(
+            '❌ Not a perfect day yet - ${completedHabitsToday.length}/${activeHabitsForToday.length} habits completed');
+      }
+    } catch (e) {
+      print('💥 ERROR in perfect day check: $e');
+      LogService.error('Error checking perfect day completion',
+          error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<bool> _wasAlreadyIncrementedToday(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final key =
+          'perfect_day_incremented_${userId}_${today.year}_${today.month}_${today.day}';
+      return prefs.getBool(key) ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> _markTodayAsIncremented(String userId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final key =
+          'perfect_day_incremented_${userId}_${today.year}_${today.month}_${today.day}';
+      await prefs.setBool(key, true);
+    } catch (e) {
+      LogService.error('Error marking today as incremented',
+          error: e, tag: 'HabitsBloc');
     }
   }
 }

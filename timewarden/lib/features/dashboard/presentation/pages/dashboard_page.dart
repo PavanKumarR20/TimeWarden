@@ -17,6 +17,9 @@ import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../journal/presentation/pages/secure_journal_page.dart';
 import '../../../../core/services/quotes_service.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/firebase_service.dart';
+import '../../domain/entities/user_stats.dart';
+import '../../data/repositories/user_stats_repository_impl.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -284,319 +287,358 @@ class DashboardHomeTab extends StatefulWidget {
   State<DashboardHomeTab> createState() => _DashboardHomeTabState();
 }
 
-class _DashboardHomeTabState extends State<DashboardHomeTab> {
+class _DashboardHomeTabState extends State<DashboardHomeTab>
+    with AutomaticKeepAliveClientMixin {
+  UserStats? _userStats;
+  late UserStatsRepositoryImpl _statsRepository;
+
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
+    _statsRepository = UserStatsRepositoryImpl(FirebaseService());
 
     // Load data using BLoCs from context
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HabitsBloc>().add(HabitsLoadRequested());
       context.read<JournalBloc>().add(const JournalLoadRequested());
+      _loadUserStats();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh stats when the widget becomes visible again
+    _loadUserStats();
+  }
+
+  Future<void> _loadUserStats() async {
+    final userId = FirebaseService().currentUserId;
+    if (userId != null) {
+      final stats = await _statsRepository.getUserStats(userId);
+      if (mounted) {
+        setState(() {
+          _userStats = stats;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Daily Quote card
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.format_quote,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Quote of the Day',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDailyQuote(),
-                ],
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Refresh all data when user pulls to refresh
+        context.read<HabitsBloc>().add(HabitsLoadRequested());
+        context.read<JournalBloc>().add(const JournalLoadRequested());
+        await _loadUserStats();
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Daily Quote card
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.format_quote,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Quote of the Day',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDailyQuote(),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Quick stats
-          BlocBuilder<HabitsBloc, HabitsState>(
-            builder: (context, habitsState) {
-              return BlocBuilder<JournalBloc, JournalState>(
-                builder: (context, journalState) {
-                  // Calculate stats from real data
-                  int totalHabits = 0;
-                  int completedHabits = 0;
-                  int journalEntries = 0;
-                  int currentStreak = 0;
+            // Quick stats
+            BlocBuilder<HabitsBloc, HabitsState>(
+              builder: (context, habitsState) {
+                return BlocBuilder<JournalBloc, JournalState>(
+                  builder: (context, journalState) {
+                    // Calculate stats from real data
+                    int totalHabits = 0;
+                    int completedHabits = 0;
+                    int journalEntries = 0;
+                    int currentStreak =
+                        _userStats?.perfectDays ?? 0; // Use backend stats
 
-                  if (habitsState is HabitsLoaded) {
-                    // Count all habits that should be done today (active habits)
-                    // Include all habits that haven't met their period target OR are daily habits
-                    final activeHabitsForToday =
-                        habitsState.habits.where((habit) {
-                      // Always include daily habits
-                      if (habit.frequency.type == HabitFrequencyType.daily) {
-                        return true;
-                      }
-                      // For other frequencies, include if not completed for period
-                      return !habit.isCompletedForCurrentPeriod;
-                    }).toList();
+                    if (habitsState is HabitsLoaded) {
+                      // Count all habits that should be done today (active habits)
+                      // Include all habits that haven't met their period target OR are daily habits
+                      final activeHabitsForToday =
+                          habitsState.habits.where((habit) {
+                        // Always include daily habits
+                        if (habit.frequency.type == HabitFrequencyType.daily) {
+                          return true;
+                        }
+                        // For other frequencies, include if not completed for period
+                        return !habit.isCompletedForCurrentPeriod;
+                      }).toList();
 
-                    totalHabits = activeHabitsForToday.length;
-                    completedHabits = activeHabitsForToday.where((habit) {
-                      return habit.isCompletedToday;
-                    }).length;
+                      totalHabits = activeHabitsForToday.length;
+                      completedHabits = activeHabitsForToday.where((habit) {
+                        return habit.isCompletedToday;
+                      }).length;
 
-                    // Calculate daily completion streak - only counts days where ALL habits were completed
-                    if (habitsState.habits.isNotEmpty) {
-                      currentStreak =
-                          _calculateDailyCompletionStreak(habitsState.habits);
+                      // Perfect days now tracked automatically in habits BLoC
                     }
+
+                    if (journalState is JournalLoaded) {
+                      journalEntries = journalState.entries.length;
+                    }
+
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'Today\'s Habits',
+                                '$completedHabits/$totalHabits',
+                                Icons.check_circle,
+                                Colors.green,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: BlocBuilder<PomodoroBloc, PomodoroState>(
+                                builder: (context, pomodoroState) {
+                                  return _buildPomodoroStatCard(
+                                      context, pomodoroState);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'Perfect Days',
+                                '$currentStreak days',
+                                Icons.local_fire_department,
+                                Colors.red,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'Journal Entries',
+                                '$journalEntries',
+                                Icons.book,
+                                Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+
+            // Today's habits section
+            Text(
+              'Today\'s Habits',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            BlocBuilder<HabitsBloc, HabitsState>(
+              builder: (context, state) {
+                if (state is HabitsLoading) {
+                  return const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  );
+                }
+
+                if (state is HabitsLoaded) {
+                  if (state.habits.isEmpty) {
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 48,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No habits yet',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tap the Habits tab to create your first habit!',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
 
-                  if (journalState is JournalLoaded) {
-                    journalEntries = journalState.entries.length;
+                  // Show today's incomplete habits only (excluding habits completed for period)
+                  final today = DateTime.now();
+                  final incompleteHabits = state.habits
+                      .where((habit) {
+                        // Exclude habits that are completed for the current period
+                        if (habit.isCompletedForCurrentPeriod) {
+                          return false;
+                        }
+
+                        final isCompletedToday = habit.completedDates.any(
+                            (date) =>
+                                date.year == today.year &&
+                                date.month == today.month &&
+                                date.day == today.day);
+                        return !isCompletedToday; // Only show incomplete habits
+                      })
+                      .take(3)
+                      .toList();
+
+                  if (incompleteHabits.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.celebration,
+                              size: 64,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'All habits completed! 🎉',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Great job staying disciplined!',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   }
 
                   return Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatCard(
-                              context,
-                              'Today\'s Habits',
-                              '$completedHabits/$totalHabits',
-                              Icons.check_circle,
-                              Colors.green,
-                            ),
+                    children: incompleteHabits.map((habit) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.circle_outlined,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: BlocBuilder<PomodoroBloc, PomodoroState>(
-                              builder: (context, pomodoroState) {
-                                return _buildPomodoroStatCard(
-                                    context, pomodoroState);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildStatCard(
-                              context,
-                              'Perfect Days',
-                              '$currentStreak days',
-                              Icons.local_fire_department,
-                              Colors.red,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildStatCard(
-                              context,
-                              'Journal Entries',
-                              '$journalEntries',
-                              Icons.book,
-                              Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          ),
-          const SizedBox(height: 24),
+                          title: Text(habit.name),
+                          subtitle: const Text('Tap to complete'),
+                          onTap: () async {
+                            // Complete the habit
+                            context.read<HabitsBloc>().add(
+                                HabitCompletionToggled(
+                                    habitId: habit.id, date: today));
 
-          // Today's habits section
-          Text(
-            'Today\'s Habits',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          BlocBuilder<HabitsBloc, HabitsState>(
-            builder: (context, state) {
-              if (state is HabitsLoading) {
-                return const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                );
-              }
-
-              if (state is HabitsLoaded) {
-                if (state.habits.isEmpty) {
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 48,
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No habits yet',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap the Habits tab to create your first habit!',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                // Show today's incomplete habits only (excluding habits completed for period)
-                final today = DateTime.now();
-                final incompleteHabits = state.habits
-                    .where((habit) {
-                      // Exclude habits that are completed for the current period
-                      if (habit.isCompletedForCurrentPeriod) {
-                        return false;
-                      }
-
-                      final isCompletedToday = habit.completedDates.any(
-                          (date) =>
-                              date.year == today.year &&
-                              date.month == today.month &&
-                              date.day == today.day);
-                      return !isCompletedToday; // Only show incomplete habits
-                    })
-                    .take(3)
-                    .toList();
-
-                if (incompleteHabits.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.celebration,
-                            size: 64,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'All habits completed! 🎉',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Great job staying disciplined!',
-                            style:
-                                Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                    ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return Column(
-                  children: incompleteHabits.map((habit) {
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: Icon(
-                          Icons.circle_outlined,
-                          color: Theme.of(context).colorScheme.primary,
+                            // Show feedback
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('${habit.name} completed! 🎉'),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
                         ),
-                        title: Text(habit.name),
-                        subtitle: const Text('Tap to complete'),
-                        onTap: () async {
-                          // Complete the habit
-                          context.read<HabitsBloc>().add(HabitCompletionToggled(
-                              habitId: habit.id, date: today));
+                      );
+                    }).toList(),
+                  );
+                }
 
-                          // Show feedback
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('${habit.name} completed! 🎉'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  }).toList(),
-                );
-              }
-
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Error loading habits',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Error loading habits',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
-          ), // Add this comma for the habits section
-        ],
-      ),
-    );
+                );
+              },
+            ), // Add this comma for the habits section
+          ],
+        ),
+      ), // Close SingleChildScrollView (child of RefreshIndicator)
+    ); // Close RefreshIndicator
   }
 
   Widget _buildStatCard(
@@ -795,6 +837,75 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
     );
   }
 
+  Future<void> _checkAndUpdatePerfectDay(
+      List<Habit> habits, int totalHabits, int completedHabits) async {
+    final userId = FirebaseService().currentUserId;
+    if (userId == null || totalHabits == 0) {
+      print(
+          'DEBUG: Skipping perfect day check - userId: $userId, totalHabits: $totalHabits');
+      return;
+    }
+
+    // Check if today is a perfect day (all habits completed)
+    final isCurrentlyPerfect = completedHabits == totalHabits;
+    print(
+        'DEBUG: Perfect day check - completed: $completedHabits/$totalHabits, isPerfect: $isCurrentlyPerfect');
+
+    try {
+      // Get current stats to see what we're working with
+      final currentStats = await _statsRepository.getUserStats(userId);
+      print(
+          'DEBUG: Current perfect days in backend: ${currentStats?.perfectDays ?? 0}');
+
+      if (isCurrentlyPerfect) {
+        // Check if today's perfect day was already counted
+        final todayAlreadyCounted =
+            await _isTodayAlreadyCountedAsPerfect(userId);
+        print('DEBUG: Today already counted as perfect: $todayAlreadyCounted');
+
+        if (!todayAlreadyCounted) {
+          await _statsRepository.incrementPerfectDays(userId);
+          await _markTodayAsPerfectDayCounted(userId);
+          await _loadUserStats(); // Refresh stats
+          print(
+              '✅ Perfect day incremented! New total: ${_userStats?.perfectDays}');
+        }
+      }
+    } catch (e) {
+      print('❌ Error updating perfect days: $e');
+    }
+  }
+
+  Future<bool> _isTodayAlreadyCountedAsPerfect(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final key =
+        'perfect_day_counted_${userId}_${today.year}_${today.month}_${today.day}';
+    return prefs.getBool(key) ?? false;
+  }
+
+  Future<void> _markTodayAsPerfectDayCounted(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    final key =
+        'perfect_day_counted_${userId}_${today.year}_${today.month}_${today.day}';
+    await prefs.setBool(key, true);
+  }
+
+  bool _wasPerfectDayAlready(List<Habit> habits) {
+    // Check if all habits that exist were already completed today
+    // This helps us detect when a perfect day is lost vs gained
+    final today = DateTime.now();
+    for (final habit in habits) {
+      final wasCompleted = habit.completedDates.any((date) =>
+          date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day);
+      if (!wasCompleted) return false;
+    }
+    return habits.isNotEmpty;
+  }
+
   /// Calculates total number of days where all habits were completed
   /// These are "Days of Discipline" - when commitment met action
   /// A testament to self-control and consistency in personal growth
@@ -811,6 +922,11 @@ class _DashboardHomeTabState extends State<DashboardHomeTab> {
         allCompletionDates.add(dateOnly);
       }
     }
+
+    // Always include today in the check (important for current day completions)
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    allCompletionDates.add(todayOnly);
 
     // For each date, check if ALL habits were completed
     for (final date in allCompletionDates) {
