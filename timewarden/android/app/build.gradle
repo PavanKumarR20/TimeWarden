@@ -35,8 +35,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.timewarden"
-        minSdkVersion 23
-        targetSdk = flutter.targetSdkVersion
+        minSdkVersion 26
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
