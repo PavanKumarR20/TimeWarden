@@ -65,11 +65,12 @@ class NotificationService {
           'session_alerts',
           'Session Alerts',
           description: 'Session completion and break notifications with sound',
-          importance: Importance.high,
+          importance: Importance.max,
           enableVibration: true,
           enableLights: true,
           showBadge: true,
           playSound: true,
+          sound: RawResourceAndroidNotificationSound('session_complete'),
         );
 
         await androidImplementation
