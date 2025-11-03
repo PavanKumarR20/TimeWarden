@@ -144,11 +144,23 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
     _timer?.cancel();
     _syncTimer?.cancel();
     _mainTimer?.cancel();
     _audioService.dispose();
+
+    // Stop background service when BLoC is disposed (app closing)
+    // Only if there's no active session - if session is active, keep service running
+    if (_currentSession == null ||
+        _currentSession!.status != SessionStatus.active) {
+      final isServiceRunning = await PomodoroBackgroundService.isRunning;
+      if (isServiceRunning) {
+        await PomodoroBackgroundService.stopService();
+        print('PomodoroBloc: Background service stopped on BLoC close');
+      }
+    }
+
     return super.close();
   }
 
@@ -394,6 +406,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     // Cancel notification
     await _cancelNotification();
 
+    // Stop background service since timer is stopped
+    final isServiceRunning = await PomodoroBackgroundService.isRunning;
+    if (isServiceRunning) {
+      await PomodoroBackgroundService.stopService();
+      print('PomodoroBloc: Background service stopped');
+    }
+
     // Clear notification tracking in background service for fresh starts
     await PomodoroBackgroundService.clearNotificationTracking();
     print('PomodoroBloc: Notification tracking cleared');
@@ -475,37 +494,11 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         }
       }
 
-      // Only show notification if this completion is not from background service
-      // (to avoid duplicate notifications)
-      if (_settings.enableNotifications && event.playSound) {
-        final sessionTypeName = _currentSession!.type == PomodoroType.work
-            ? 'Work'
-            : _currentSession!.type == PomodoroType.longBreak
-                ? 'Long Break'
-                : 'Break';
-
-        final message = _currentSession!.type == PomodoroType.work
-            ? 'Great job! Time for a break.'
-            : 'Break time is over. Ready to focus?';
-
-        // Determine next session type
-        final nextSessionType = _currentSession!.type == PomodoroType.work
-            ? (_completedWorkSessions % _settings.sessionsUntilLongBreak ==
-                    _settings.sessionsUntilLongBreak - 1
-                ? 'Long Break'
-                : 'Short Break')
-            : 'Work Session';
-
-        print(
-            'PomodoroBloc: Showing session completion notification with sound for background playback');
-
-        // Critical: This notification will play custom sounds even when app is backgrounded
-        await _notificationService.showSessionCompletionNotification(
-          sessionType: sessionTypeName,
-          message: message,
-          nextSessionType: nextSessionType,
-        );
-      }
+      // IMPORTANT: Don't show notification from BLoC
+      // Background service already handles notification with sound
+      // This prevents duplicate notifications and sounds
+      // The background service runs independently and shows the notification
+      // when the timer completes, regardless of app state (foreground/background/closed)
 
       _currentSession = _currentSession!.copyWith(
         status: SessionStatus.completed,
@@ -553,6 +546,14 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
     // Cancel the ongoing timer notification since session is complete
     await _cancelNotification();
+
+    // Stop background service since no timer is running
+    final isServiceRunning = await PomodoroBackgroundService.isRunning;
+    if (isServiceRunning) {
+      await PomodoroBackgroundService.stopService();
+      print(
+          'PomodoroBloc: Background service stopped after session completion');
+    }
   }
 
   Future<void> _onNextSessionRequested(
@@ -1009,6 +1010,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Cancel any notifications
       await _cancelNotification();
       print('PomodoroBloc: Notifications cancelled');
+
+      // Stop background service when resetting (no need to keep it running)
+      final isServiceRunning = await PomodoroBackgroundService.isRunning;
+      if (isServiceRunning) {
+        await PomodoroBackgroundService.stopService();
+        print('PomodoroBloc: Background service stopped');
+      }
 
       // Clear notification tracking in background service for fresh starts
       await PomodoroBackgroundService.clearNotificationTracking();

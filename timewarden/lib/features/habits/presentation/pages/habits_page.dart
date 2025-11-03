@@ -167,15 +167,24 @@ class _HabitsViewState extends State<HabitsView> {
 
   Widget _buildHabitsView(BuildContext context, List<Habit> allHabits) {
     // Filter habits based on hide completed setting
+    print('\n🔍 FILTERING HABITS - hideCompletedHabits: $_hideCompletedHabits');
+    print('   Total habits: ${allHabits.length}');
+
     List<Habit> displayHabits = allHabits;
     if (_hideCompletedHabits) {
       displayHabits = allHabits.where((habit) {
         // Hide habits that are completed for the current period
         // This includes habits with green checkmarks (completed today) and
         // habits with purple indicators (completed for period but not today)
-        return !habit.isCompletedForCurrentPeriod;
+        final shouldShow = !habit.isCompletedForCurrentPeriod;
+        print(
+            '   Habit "${habit.name}": isCompletedForCurrentPeriod=${habit.isCompletedForCurrentPeriod}, shouldShow=$shouldShow');
+        return shouldShow;
       }).toList();
     }
+
+    print('   Filtered habits: ${displayHabits.length}');
+    print('   Showing: ${displayHabits.map((h) => h.name).join(", ")}\n');
 
     return CalendarHabitsView(
       habits: displayHabits,

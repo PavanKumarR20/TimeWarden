@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,8 +12,9 @@ import '../../features/pomodoro/domain/entities/pomodoro_session.dart';
 import '../../features/pomodoro/domain/entities/pomodoro_settings.dart';
 
 class PomodoroBackgroundService {
-  static const String _channelId = 'pomodoro_background_service';
-  static const String _channelName = 'Pomodoro Background Service';
+  static const String _channelId =
+      'pomodoro_timer_v2'; // Changed channel ID to force new channel creation
+  static const String _channelName = 'Pomodoro Timer';
   static const int _notificationId = 888;
 
   static final FlutterLocalNotificationsPlugin
@@ -31,19 +33,22 @@ class PomodoroBackgroundService {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       _channelId,
       _channelName,
-      description: 'Pomodoro timer background service',
-      importance: Importance.low,
+      description: 'Pomodoro timer progress',
+      // Use HIGH importance for lock screen visibility (default wasn't enough)
+      importance: Importance.high,
       playSound: false,
       enableVibration: false,
+      showBadge: false,
     );
 
     const AndroidNotificationChannel alertsChannel = AndroidNotificationChannel(
       'session_alerts',
       'Session Alerts',
       description: 'Pomodoro session completion alerts',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
       enableVibration: true,
+      sound: RawResourceAndroidNotificationSound('session_complete'),
     );
 
     await _flutterLocalNotificationsPlugin
@@ -56,15 +61,24 @@ class PomodoroBackgroundService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(alertsChannel);
 
+    // Request full-screen intent permission for Android 14+ (required for lock screen notifications)
+    final androidImplementation =
+        _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    if (androidImplementation != null) {
+      await androidImplementation.requestFullScreenIntentPermission();
+      print('BackgroundService: Requested full-screen intent permission');
+    }
+
     await FlutterBackgroundService().configure(
       androidConfiguration: AndroidConfiguration(
         onStart: _onStart,
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: _channelId,
-        initialNotificationTitle: 'Pomodoro Timer',
-        initialNotificationContent: 'Timer is running in background',
-        foregroundServiceNotificationId: _notificationId,
+        // No initial notification - will only show when timer starts
+        // Remove foregroundServiceNotificationId - we'll manage it ourselves
+        // This prevents conflicts between service-managed and manually-updated notifications
       ),
       iosConfiguration: IosConfiguration(
         autoStart: false,
@@ -81,7 +95,15 @@ class PomodoroBackgroundService {
     // Store service instance for use in handlers
     _serviceInstance = service;
 
-    // Initialize the notification plugin
+    // Initialize the notification plugin in the background service
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    // Don't set initial notification - only show when timer actually starts
+    // This prevents the "Ready to start" notification from showing
 
     // Start listening for events from the main app
     service.on('startTimer').listen((event) => _handleStartTimer(event));
@@ -175,7 +197,14 @@ class PomodoroBackgroundService {
 
     // Save initial session state
     await _saveSessionState();
-    // Note: Notification will be updated by the periodic timer
+
+    // IMPORTANT: Immediately update notification to replace "Ready to start"
+    if (_serviceInstance != null) {
+      await _updateNotification(_serviceInstance!);
+      print(
+          'BackgroundService: Immediately updated notification after timer start');
+    }
+    // Note: Notification will continue to be updated by the periodic timer
   }
 
   static Future<void> _handlePauseTimer() async {
@@ -387,11 +416,15 @@ class PomodoroBackgroundService {
 
     // Check if we already notified for this session to prevent duplicates
     if (_notifiedSessions.contains(_currentSession!.id)) {
+      print(
+          'BackgroundService: Already notified for session ${_currentSession!.id}, skipping duplicate notification');
       return;
     }
 
-    // Mark this session as notified
+    // Mark this session as notified FIRST to prevent any race conditions
     _notifiedSessions.add(_currentSession!.id);
+    print(
+        'BackgroundService: Session ${_currentSession!.id} completed, showing notification');
 
     // Show completion notification with sound
     if (_settings?.enableNotifications == true) {
@@ -405,13 +438,27 @@ class PomodoroBackgroundService {
           ? 'Great job! Time for a break.'
           : 'Break time is over. Ready to focus?';
 
+      // Determine which sound to play based on session type
+      final soundFileName = _getSoundFileForSession(_currentSession!.type);
+
+      print(
+          'BackgroundService: Playing completion sound: $soundFileName for $sessionTypeName');
+
       // Use platform-level notification with sound
+      // This is the ONLY place where completion notifications are shown
+      // to avoid duplicates from BLoC
       await _showCompletionNotification(
         sessionType: sessionTypeName,
         message: message,
         playSound: _settings?.enableSounds ?? false,
         enableVibration: _settings?.enableVibration ?? false,
+        soundFileName: soundFileName,
       );
+
+      print('BackgroundService: Completion notification shown successfully');
+    } else {
+      print(
+          'BackgroundService: Notifications disabled in settings, skipping notification');
     }
 
     // Mark session as completed
@@ -446,7 +493,8 @@ class PomodoroBackgroundService {
 
   static Future<void> _updateNotification(ServiceInstance service) async {
     if (_currentSession == null) {
-      await _flutterLocalNotificationsPlugin.cancel(_notificationId);
+      print(
+          'BackgroundService: No active session - skipping notification update');
       return;
     }
 
@@ -462,22 +510,24 @@ class PomodoroBackgroundService {
     final status =
         _currentSession!.status == SessionStatus.active ? 'Running' : 'Paused';
 
-    await _flutterLocalNotificationsPlugin.show(
-      _notificationId,
-      'Pomodoro Timer - $sessionType',
-      '$status: ${remainingMinutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')} remaining',
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          ongoing: true,
-          playSound: false,
-          enableVibration: false,
-          priority: Priority.low,
-          importance: Importance.low,
-        ),
-      ),
-    );
+    // Calculate progress percentage
+    final totalSeconds = _currentSession!.totalDurationSeconds;
+    final elapsedSeconds = _currentSession!.timeSpentSeconds;
+    final progressPercentage = ((elapsedSeconds / totalSeconds) * 100).round();
+
+    print(
+        'BackgroundService: Updating foreground notification - $sessionType $status ${remainingMinutes}:${remainingSeconds.toString().padLeft(2, '0')} ($progressPercentage%)');
+
+    // Use setForegroundNotificationInfo() - the proper API for foreground service notifications
+    // This is more reliable for lock screen visibility than using .show()
+    if (service is AndroidServiceInstance) {
+      await service.setForegroundNotificationInfo(
+        title: 'Pomodoro Timer - $sessionType',
+        content:
+            '$status: ${remainingMinutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')} remaining',
+      );
+      print('BackgroundService: Foreground notification updated successfully');
+    }
   }
 
   static Future<void> _showServiceClosedNotification() async {
@@ -493,9 +543,21 @@ class PomodoroBackgroundService {
           enableVibration: true,
           priority: Priority.high,
           importance: Importance.high,
+          visibility: NotificationVisibility.public, // Can show on lock screen
         ),
       ),
     );
+  }
+
+  static String _getSoundFileForSession(PomodoroType type) {
+    switch (type) {
+      case PomodoroType.work:
+        return 'work_complete';
+      case PomodoroType.shortBreak:
+        return 'break_complete';
+      case PomodoroType.longBreak:
+        return 'break_complete';
+    }
   }
 
   static Future<void> _showCompletionNotification({
@@ -503,7 +565,11 @@ class PomodoroBackgroundService {
     required String message,
     required bool playSound,
     required bool enableVibration,
+    required String soundFileName,
   }) async {
+    print(
+        'BackgroundService: Creating completion notification - Type: $sessionType, Sound: $soundFileName, Play: $playSound');
+
     await _flutterLocalNotificationsPlugin.show(
       _notificationId + 2,
       'Pomodoro Complete - $sessionType',
@@ -512,17 +578,35 @@ class PomodoroBackgroundService {
         android: AndroidNotificationDetails(
           'session_alerts',
           'Session Alerts',
+          channelDescription: 'Pomodoro session completion alerts',
           playSound: playSound,
           enableVibration: enableVibration,
-          priority: Priority.high,
-          importance: Importance.high,
+          priority: Priority.max,
+          importance: Importance.max,
           category: AndroidNotificationCategory.alarm,
           sound: playSound
-              ? const RawResourceAndroidNotificationSound('session_complete')
+              ? RawResourceAndroidNotificationSound(soundFileName)
               : null,
+          // Critical flags for locked screen playback
+          visibility: NotificationVisibility.public, // Shows on lock screen
+          fullScreenIntent: true, // Can show full-screen and wake device
+          channelShowBadge: true,
+          autoCancel: true, // Dismissible after tap
+          ongoing: false, // Not persistent
+          enableLights: true, // LED notification light
+          ledColor: const Color(0xFF4CAF50), // Green LED
+          ledOnMs: 1000,
+          ledOffMs: 500,
+          // Audio attributes to ensure sound plays at alarm level
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+          // Show on lock screen even when device is secured
+          showWhen: true,
+          when: DateTime.now().millisecondsSinceEpoch,
         ),
       ),
     );
+
+    print('BackgroundService: Notification created and shown');
   }
 
   // Removed SharedPreferences persistence - keeping simple

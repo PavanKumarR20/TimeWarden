@@ -109,57 +109,110 @@ class Habit extends Equatable {
 
   bool get isCompletedToday {
     final today = DateTime.now();
-    return completedDates.any((date) =>
+    final result = completedDates.any((date) =>
         date.year == today.year &&
         date.month == today.month &&
         date.day == today.day);
+    print(
+        '   📅 isCompletedToday for "$name": $result (today: ${today.year}-${today.month}-${today.day})');
+    return result;
   }
 
   /// Returns true if the habit is completed for the current period
   /// (day, week, or month depending on frequency type)
   bool get isCompletedForCurrentPeriod {
     final now = DateTime.now();
+    final today =
+        DateTime(now.year, now.month, now.day); // Normalize to midnight
+
+    print('🔍 CHECKING isCompletedForCurrentPeriod for: $name');
+    print('   - Frequency type: ${frequency.type}');
+    print(
+        '   - Completed dates: ${completedDates.map((d) => "${d.year}-${d.month}-${d.day}").toList()}');
+    print('   - Today: ${today.year}-${today.month}-${today.day}');
 
     switch (frequency.type) {
       case HabitFrequencyType.daily:
-        return isCompletedToday;
+        final result = isCompletedToday;
+        print('   - DAILY: isCompletedToday = $result');
+        return result;
 
       case HabitFrequencyType.everyNDays:
-        return isCompletedToday;
+        // Check if completed in the last N days (rolling period)
+        final nDaysAgo = today.subtract(Duration(days: frequency.target - 1));
+        print('   - EVERY_N_DAYS: target = ${frequency.target} days');
+        print(
+            '   - Rolling period: ${nDaysAgo.year}-${nDaysAgo.month}-${nDaysAgo.day} to ${today.year}-${today.month}-${today.day}');
+        final completionsInPeriod = completedDates.where((date) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          return (dateOnly.isAtSameMomentAs(nDaysAgo) ||
+                  dateOnly.isAfter(nDaysAgo)) &&
+              (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today));
+        }).length;
+        print(
+            '   - Completions in last ${frequency.target} days: $completionsInPeriod');
+        final result = completionsInPeriod >= 1;
+        print('   - Result: $result');
+        return result;
 
       case HabitFrequencyType.timesPerWeek:
-        // Check if completed this week
-        final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-        final endOfWeek = startOfWeek.add(const Duration(days: 6));
-        final completionsThisWeek = completedDates
-            .where((date) =>
-                date.isAfter(startOfWeek.subtract(const Duration(days: 1))) &&
-                date.isBefore(endOfWeek.add(const Duration(days: 1))))
-            .length;
-        return completionsThisWeek >= frequency.target;
+        // Check if completed target times in the last 7 days (rolling week)
+        final sevenDaysAgo = today.subtract(
+            const Duration(days: 6)); // Today + 6 days back = 7 days total
+        print('   - TIMES_PER_WEEK: target = ${frequency.target}');
+        print(
+            '   - Rolling 7-day range: ${sevenDaysAgo.year}-${sevenDaysAgo.month}-${sevenDaysAgo.day} to ${today.year}-${today.month}-${today.day}');
+        final completionsThisWeek = completedDates.where((date) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          return (dateOnly.isAtSameMomentAs(sevenDaysAgo) ||
+                  dateOnly.isAfter(sevenDaysAgo)) &&
+              (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today));
+        }).length;
+        print(
+            '   - Completions in last 7 days: $completionsThisWeek / ${frequency.target}');
+        final weekResult = completionsThisWeek >= frequency.target;
+        print('   - Result: $weekResult');
+        return weekResult;
 
       case HabitFrequencyType.timesPerMonth:
-        // Check if completed this month
-        final startOfMonth = DateTime(now.year, now.month, 1);
-        final endOfMonth = DateTime(now.year, now.month + 1, 1)
-            .subtract(const Duration(days: 1));
-        final completionsThisMonth = completedDates
-            .where((date) =>
-                date.isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
-                date.isBefore(endOfMonth.add(const Duration(days: 1))))
-            .length;
-        return completionsThisMonth >= frequency.target;
+        // Check if completed target times in the last 30 days (rolling month)
+        final thirtyDaysAgo = today.subtract(
+            const Duration(days: 29)); // Today + 29 days back = 30 days total
+        print('   - TIMES_PER_MONTH: target = ${frequency.target}');
+        print(
+            '   - Rolling 30-day range: ${thirtyDaysAgo.year}-${thirtyDaysAgo.month}-${thirtyDaysAgo.day} to ${today.year}-${today.month}-${today.day}');
+        final completionsThisMonth = completedDates.where((date) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          return (dateOnly.isAtSameMomentAs(thirtyDaysAgo) ||
+                  dateOnly.isAfter(thirtyDaysAgo)) &&
+              (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today));
+        }).length;
+        print(
+            '   - Completions in last 30 days: $completionsThisMonth / ${frequency.target}');
+        final monthResult = completionsThisMonth >= frequency.target;
+        print('   - Result: $monthResult');
+        return monthResult;
 
       case HabitFrequencyType.timesInPeriod:
-        // Check if completed enough times in the specified period
+        // Check if completed enough times in the specified rolling period
+        final periodDays = frequency.periodDays ?? 30;
         final periodStart =
-            now.subtract(Duration(days: frequency.periodDays ?? 30));
-        final completionsInPeriod = completedDates
-            .where((date) =>
-                date.isAfter(periodStart.subtract(const Duration(days: 1))) &&
-                date.isBefore(now.add(const Duration(days: 1))))
-            .length;
-        return completionsInPeriod >= frequency.target;
+            today.subtract(Duration(days: periodDays - 1)); // Include today
+        print(
+            '   - TIMES_IN_PERIOD: target = ${frequency.target}, period = $periodDays days');
+        print(
+            '   - Rolling period range: ${periodStart.year}-${periodStart.month}-${periodStart.day} to ${today.year}-${today.month}-${today.day}');
+        final completionsInPeriod = completedDates.where((date) {
+          final dateOnly = DateTime(date.year, date.month, date.day);
+          return (dateOnly.isAtSameMomentAs(periodStart) ||
+                  dateOnly.isAfter(periodStart)) &&
+              (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today));
+        }).length;
+        print(
+            '   - Completions in last $periodDays days: $completionsInPeriod / ${frequency.target}');
+        final periodResult = completionsInPeriod >= frequency.target;
+        print('   - Result: $periodResult');
+        return periodResult;
     }
   }
 

@@ -143,75 +143,111 @@ class _PerfectDaysManagerDialogState extends State<PerfectDaysManagerDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Row(
+      title: const Row(
         children: [
-          const Icon(Icons.local_fire_department, color: Colors.orange),
-          const SizedBox(width: 8),
-          const Text('Perfect Days Manager'),
+          Icon(Icons.local_fire_department, color: Colors.orange),
+          SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              'Perfect Days Manager',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_isLoading)
-            const CircularProgressIndicator()
-          else ...[
-            Text(
-              'Current Perfect Days',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withOpacity(0.3)),
-              ),
-              child: Text(
-                '${_userStats?.perfectDays ?? 0}',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.orange,
-                      fontWeight: FontWeight.bold,
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.85,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_isLoading)
+                const CircularProgressIndicator()
+              else ...[
+                Text(
+                  'Current Perfect Days',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    '${_userStats?.perfectDays ?? 0}',
+                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Manual Controls',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _decrementPerfectDays,
+                          icon: const Icon(Icons.remove, size: 18),
+                          label: const Text(
+                            'Decrease',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Manual Controls',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _isUpdating ? null : _decrementPerfectDays,
-                  icon: const Icon(Icons.remove),
-                  label: const Text('Decrease'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _incrementPerfectDays,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text(
+                            'Increase',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: _isUpdating ? null : _incrementPerfectDays,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Increase'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
+                if (_isUpdating)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: CircularProgressIndicator(),
                   ),
-                ),
               ],
-            ),
-            if (_isUpdating)
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: CircularProgressIndicator(),
-              ),
-          ],
-        ],
+            ],
+          ),
+        ),
       ),
       actions: [
         TextButton(
