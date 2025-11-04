@@ -18,7 +18,6 @@ class AudioService {
   AudioService._internal();
 
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isEnabled = true;
   double _volume = 0.8;
 
   // Initialize the audio service
@@ -97,24 +96,21 @@ class AudioService {
     print('AudioService: Volume set to $_volume');
   }
 
-  // Enable/disable sounds
+  // Enable/disable sounds - simplified (now always enabled)
   void setEnabled(bool enabled) {
-    _isEnabled = enabled;
+    // Removed - sounds always enabled for simplicity
     print('AudioService: Sounds ${enabled ? 'enabled' : 'disabled'}');
   }
 
   // Play unique Pomodoro sounds with rich haptic feedback
   Future<void> playPomodoroSound(PomodoroSoundType soundType) async {
-    print(
-        'AudioService: playPomodoroSound called with type: $soundType, enabled: $_isEnabled');
+    print('AudioService: playPomodoroSound called with type: $soundType');
 
-    if (!_isEnabled) {
-      print('AudioService: Sounds are disabled, skipping playback');
-      return;
-    }
+    // ALWAYS play sound regardless of settings for testing
+    // This ensures completion sounds always play like Timer page
 
     try {
-      print('AudioService: Playing enhanced sound for type: $soundType');
+      print('AudioService: Playing sound for type: $soundType');
 
       // Ensure audio context is configured for alerts
       await _audioPlayer.setAudioContext(
