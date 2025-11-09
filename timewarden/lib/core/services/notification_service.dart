@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -402,5 +403,128 @@ class NotificationService {
     );
 
     debugPrint('NotificationService: Session completion notification shown');
+  }
+
+  /// Schedule a session completion notification to fire at a specific time
+  /// This ensures the sound plays even when the app is backgrounded
+  Future<void> scheduleSessionCompletionNotification({
+    required DateTime scheduledTime,
+    required String sessionType,
+    required String message,
+    String? nextSessionType,
+  }) async {
+    debugPrint(
+        'NotificationService: Scheduling session completion notification');
+    debugPrint('NotificationService: Scheduled for: $scheduledTime');
+    debugPrint('NotificationService: Type: $sessionType, Message: $message');
+
+    // Determine which custom sound to play based on session type
+    String customSoundFile;
+    if (sessionType == 'Work') {
+      customSoundFile = 'work_complete'; // Custom work completion sound
+    } else if (sessionType == 'Long Break') {
+      customSoundFile = 'session_complete'; // Victory fanfare for long break
+    } else {
+      customSoundFile = 'break_complete'; // Break completion sound
+    }
+
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'session_alerts',
+      'Session Alerts',
+      channelDescription:
+          'Session completion and break notifications with sound',
+      importance: Importance.max,
+      priority: Priority.high,
+      enableVibration: true,
+      enableLights: true,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(customSoundFile),
+      icon: '@mipmap/launcher_icon',
+      autoCancel: true,
+      fullScreenIntent: true, // Try to show even when phone is locked
+      ongoing: false,
+      showWhen: true,
+      when: scheduledTime.millisecondsSinceEpoch,
+      category: AndroidNotificationCategory.alarm,
+    );
+
+    final DarwinNotificationDetails iOSDetails = DarwinNotificationDetails(
+      categoryIdentifier: 'session_completion',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: '$customSoundFile.mp3',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidDetails,
+      iOS: iOSDetails,
+    );
+
+    final title = sessionType == 'Work'
+        ? '✅ Work Session Complete!'
+        : sessionType == 'Break'
+            ? '☕ Break Time Over!'
+            : '🎉 Session Complete!';
+
+    final body =
+        nextSessionType != null ? '$message\nNext: $nextSessionType' : message;
+
+    debugPrint('NotificationService: Scheduling - Title: $title, Body: $body');
+    debugPrint('NotificationService: Using custom sound: $customSoundFile');
+
+    // Convert DateTime to TZDateTime
+    final tz.TZDateTime tzScheduledTime = tz.TZDateTime.from(
+      scheduledTime,
+      tz.local,
+    );
+
+    debugPrint(
+        'NotificationService: Current time: ${tz.TZDateTime.now(tz.local)}');
+    debugPrint('NotificationService: Scheduled time (TZ): $tzScheduledTime');
+    debugPrint(
+        'NotificationService: Time until notification: ${tzScheduledTime.difference(tz.TZDateTime.now(tz.local)).inSeconds} seconds');
+
+    // Use zonedSchedule for precise timing
+    try {
+      await _flutterLocalNotificationsPlugin.zonedSchedule(
+        998, // Different ID for scheduled notifications
+        title,
+        body,
+        tzScheduledTime,
+        platformChannelSpecifics,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+      debugPrint(
+          'NotificationService: Session completion notification scheduled successfully with ID 998');
+
+      // Verify the notification was scheduled
+      final pending =
+          await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+      debugPrint(
+          'NotificationService: Pending notifications count: ${pending.length}');
+      for (var notification in pending) {
+        debugPrint(
+            'NotificationService: Pending notification ID ${notification.id}: ${notification.title}');
+      }
+    } catch (e) {
+      debugPrint('NotificationService: ERROR scheduling notification: $e');
+      rethrow;
+    }
+  }
+
+  /// Cancel scheduled session completion notification
+  Future<void> cancelScheduledSessionNotification() async {
+    debugPrint('NotificationService: Cancelling scheduled notification ID 998');
+    await _flutterLocalNotificationsPlugin.cancel(998);
+    debugPrint('NotificationService: Cancelled scheduled session notification');
+
+    // Verify it was cancelled
+    final pending =
+        await _flutterLocalNotificationsPlugin.pendingNotificationRequests();
+    debugPrint(
+        'NotificationService: Pending notifications after cancel: ${pending.length}');
   }
 }

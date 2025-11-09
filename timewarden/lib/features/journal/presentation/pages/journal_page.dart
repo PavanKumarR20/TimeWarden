@@ -33,7 +33,8 @@ class _JournalPageState extends State<JournalPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+        length: 2, vsync: this, initialIndex: 1); // Start with Goals tab
     _tabController.addListener(() {
       setState(() {}); // Rebuild to update FAB
     });
@@ -67,12 +68,12 @@ class _JournalPageState extends State<JournalPage>
           controller: _tabController,
           tabs: const [
             Tab(
-              icon: Icon(Icons.book),
-              text: 'Journal',
-            ),
-            Tab(
               icon: Icon(Icons.flag),
               text: 'Goals',
+            ),
+            Tab(
+              icon: Icon(Icons.book),
+              text: 'Journal',
             ),
           ],
         ),
@@ -130,7 +131,9 @@ class _JournalPageState extends State<JournalPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          // Journal Tab
+          // Goals Tab (now first)
+          _buildGoalsTab(),
+          // Journal Tab (now second)
           Column(
             children: [
               if (_isSearchVisible) ...[
@@ -189,8 +192,6 @@ class _JournalPageState extends State<JournalPage>
               ),
             ],
           ),
-          // Goals Tab
-          _buildGoalsTab(),
         ],
       ),
       floatingActionButton: _buildFAB(),
@@ -346,13 +347,18 @@ class _JournalPageState extends State<JournalPage>
         _showAddDialog();
       },
       heroTag: "journal_fab_${_tabController.index}", // Unique hero tag
-      child: Icon(_tabController.index == 0 ? Icons.edit : Icons.add),
+      child: Icon(_tabController.index == 0
+          ? Icons.add
+          : Icons.edit), // Goals = add, Journal = edit
     );
   }
 
   void _showAddDialog() {
     if (_tabController.index == 0) {
-      // Journal Entry
+      // Goal creation (now first tab)
+      _showGoalCreationDialog();
+    } else {
+      // Journal Entry (now second tab)
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => BlocProvider.value(
@@ -361,9 +367,6 @@ class _JournalPageState extends State<JournalPage>
           ),
         ),
       );
-    } else {
-      // Goal creation
-      _showGoalCreationDialog();
     }
   }
 

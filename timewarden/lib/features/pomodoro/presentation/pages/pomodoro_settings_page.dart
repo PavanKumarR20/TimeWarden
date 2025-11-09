@@ -51,50 +51,9 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Description
-            Card(
-              color: Theme.of(context)
-                  .colorScheme
-                  .primaryContainer
-                  .withOpacity(0.3),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Customize your Pomodoro timer settings. Changes are saved automatically.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
             // Timer Duration Settings
             SlideInAnimation(
               child: _buildTimerSettings(context),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Notification & Audio Settings
-            SlideInAnimation(
-              delay: const Duration(milliseconds: 100),
-              child: _buildNotificationSettings(context),
             ),
 
             const SizedBox(height: 40),
@@ -147,7 +106,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               (value) => _updateSettings(
                   _settings.copyWith(workDurationMinutes: value)),
               Colors.red.shade400,
-              minValue: 5,
+              minValue: 1,
               maxValue: 60,
             ),
 
@@ -175,7 +134,7 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               (value) =>
                   _updateSettings(_settings.copyWith(longBreakMinutes: value)),
               Colors.blue.shade400,
-              minValue: 5,
+              minValue: 1,
               maxValue: 30,
             ),
 
@@ -256,134 +215,6 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               onChanged(newValue.round());
             },
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNotificationSettings(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.notifications_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Notifications & Audio',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildSwitchSetting(
-              context,
-              'Enable Notifications',
-              'Show notifications when sessions complete',
-              _settings.enableNotifications,
-              (value) => _updateSettings(
-                  _settings.copyWith(enableNotifications: value)),
-            ),
-            const SizedBox(height: 16),
-            _buildSwitchSetting(
-              context,
-              'Enable Sounds',
-              'Play sounds when sessions complete',
-              _settings.enableSounds,
-              (value) =>
-                  _updateSettings(_settings.copyWith(enableSounds: value)),
-            ),
-            const SizedBox(height: 16),
-            _buildSwitchSetting(
-              context,
-              'Enable Vibration',
-              'Vibrate when sessions complete',
-              _settings.enableVibration,
-              (value) =>
-                  _updateSettings(_settings.copyWith(enableVibration: value)),
-            ),
-            if (_settings.enableSounds) ...[
-              const SizedBox(height: 16),
-
-              // Volume Slider
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sound Volume',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: Theme.of(context).colorScheme.primary,
-                      thumbColor: Theme.of(context).colorScheme.primary,
-                      overlayColor: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.2),
-                    ),
-                    child: Slider(
-                      value: _settings.soundVolume,
-                      onChanged: (value) {
-                        HapticService.selectionClick();
-                        _updateSettings(_settings.copyWith(soundVolume: value));
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSwitchSetting(
-    BuildContext context,
-    String title,
-    String subtitle,
-    bool value,
-    Function(bool) onChanged,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-              ),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: (newValue) {
-            HapticService.selectionClick();
-            onChanged(newValue);
-          },
         ),
       ],
     );

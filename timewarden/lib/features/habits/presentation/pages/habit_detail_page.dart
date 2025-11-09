@@ -1,12 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import '../../domain/entities/habit.dart';
 import '../bloc/habits_bloc.dart';
 import '../../../../core/widgets/animations.dart';
 import '../../../../core/services/haptic_service.dart';
 import 'add_edit_habit_page.dart';
 
-class HabitDetailPage extends StatelessWidget {
+enum CalendarFilter {
+  lastWeek,
+  lastMonth,
+  last3Months,
+  last6Months,
+  thisYear,
+  allTime,
+}
+
+extension CalendarFilterExtension on CalendarFilter {
+  String get label {
+    switch (this) {
+      case CalendarFilter.lastWeek:
+        return '7 Days';
+      case CalendarFilter.lastMonth:
+        return '30 Days';
+      case CalendarFilter.last3Months:
+        return '3 Months';
+      case CalendarFilter.last6Months:
+        return '6 Months';
+      case CalendarFilter.thisYear:
+        return 'This Year';
+      case CalendarFilter.allTime:
+        return 'All Time';
+    }
+  }
+
+  DateTime getStartDate(DateTime now) {
+    switch (this) {
+      case CalendarFilter.lastWeek:
+        return now.subtract(const Duration(days: 6));
+      case CalendarFilter.lastMonth:
+        return now.subtract(const Duration(days: 29));
+      case CalendarFilter.last3Months:
+        return now.subtract(const Duration(days: 89));
+      case CalendarFilter.last6Months:
+        return now.subtract(const Duration(days: 179));
+      case CalendarFilter.thisYear:
+        return DateTime(now.year, 1, 1);
+      case CalendarFilter.allTime:
+        return DateTime(2020, 1, 1); // Arbitrary start date
+    }
+  }
+}
+
+class HabitDetailPage extends StatefulWidget {
   final Habit habit;
 
   const HabitDetailPage({
@@ -15,15 +61,22 @@ class HabitDetailPage extends StatelessWidget {
   });
 
   @override
+  State<HabitDetailPage> createState() => _HabitDetailPageState();
+}
+
+class _HabitDetailPageState extends State<HabitDetailPage> {
+  CalendarFilter _selectedFilter = CalendarFilter.lastMonth;
+
+  @override
   Widget build(BuildContext context) {
     return BlocBuilder<HabitsBloc, HabitsState>(
       builder: (context, state) {
         // Get the most current habit data from the state
-        Habit currentHabit = habit;
+        Habit currentHabit = widget.habit;
         if (state is HabitsLoaded) {
           final updatedHabit = state.habits.firstWhere(
-            (h) => h.id == habit.id,
-            orElse: () => habit,
+            (h) => h.id == widget.habit.id,
+            orElse: () => widget.habit,
           );
           currentHabit = updatedHabit;
         }
@@ -43,7 +96,8 @@ class HabitDetailPage extends StatelessWidget {
           listener: (context, state) {
             if (state is HabitsLoaded) {
               // Check if the current habit was deleted
-              final habitExists = state.habits.any((h) => h.id == habit.id);
+              final habitExists =
+                  state.habits.any((h) => h.id == widget.habit.id);
               if (!habitExists) {
                 // Habit was deleted, navigate back to habits page
                 Navigator.of(context).pop();
@@ -201,34 +255,170 @@ class HabitDetailPage extends StatelessWidget {
   }
 
   Widget _buildStatsSection(BuildContext context, Habit currentHabit) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = _selectedFilter.getStartDate(today);
+
+    // Filter completed dates based on selected period
+    final filteredDates = currentHabit.completedDates.where((date) {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      return (dateOnly.isAtSameMomentAs(startDate) ||
+              dateOnly.isAfter(startDate)) &&
+          (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today));
+    }).toList();
+
+    // Count completions in filtered period
+    final completionsInPeriod = filteredDates.length;
+
+    // Get habit color
+    Color habitColor;
+    try {
+      habitColor = currentHabit.color != null
+          ? Color(int.parse(
+              currentHabit.color!.replaceAll('#', '').padLeft(8, 'FF'),
+              radix: 16))
+          : Theme.of(context).colorScheme.primary;
+    } catch (e) {
+      habitColor = Theme.of(context).colorScheme.primary;
+    }
+
+    // Convert completed dates to Map for heatmap
+    final Map<DateTime, int> datasets = {};
+    for (final date in currentHabit.completedDates) {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      if ((dateOnly.isAtSameMomentAs(startDate) ||
+              dateOnly.isAfter(startDate)) &&
+          (dateOnly.isBefore(today) || dateOnly.isAtSameMomentAs(today))) {
+        datasets[dateOnly] = 1;
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Statistics',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontWeight: FontWeight.w600,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Activity',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            // Filter dropdown
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: DropdownButton<CalendarFilter>(
+                value: _selectedFilter,
+                underline: const SizedBox(),
+                isDense: true,
+                items: CalendarFilter.values.map((filter) {
+                  return DropdownMenuItem(
+                    value: filter,
+                    child: Text(
+                      filter.label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (CalendarFilter? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedFilter = newValue;
+                    });
+                    HapticService.selectionClick();
+                  }
+                },
+              ),
+            ),
+          ],
         ),
+
         const SizedBox(height: 16),
+
+        // GitHub-style heatmap calendar
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: HeatMap(
+              startDate: startDate,
+              endDate: today,
+              datasets: datasets,
+              colorMode: ColorMode.opacity,
+              defaultColor: Theme.of(context).colorScheme.surfaceContainer,
+              textColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              showColorTip: false,
+              showText: false,
+              scrollable: false,
+              size: 24,
+              margin: const EdgeInsets.all(2),
+              borderRadius: 4,
+              colorsets: {
+                1: habitColor,
+              },
+              onClick: (value) {
+                // Show date on tap
+                final dateStr = '${value.day}/${value.month}/${value.year}';
+                final isCompleted = datasets
+                    .containsKey(DateTime(value.year, value.month, value.day));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isCompleted
+                        ? '✅ Completed on $dateStr'
+                        : '⭕ Not done on $dateStr'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Summary stats
         Row(
           children: [
             Expanded(
-              child: _buildStatCard(
+              child: _buildSmallStatCard(
+                context,
+                'Completions',
+                '$completionsInPeriod',
+                Icons.check_circle,
+                Colors.green,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildSmallStatCard(
                 context,
                 'Current Streak',
                 '${currentHabit.currentStreak}',
                 Icons.local_fire_department,
+                Colors.orange,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 8),
             Expanded(
-              child: _buildStatCard(
+              child: _buildSmallStatCard(
                 context,
                 'Best Streak',
                 '${currentHabit.longestStreak}',
                 Icons.star,
+                Colors.amber,
               ),
             ),
           ],
@@ -237,41 +427,41 @@ class HabitDetailPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard(
+  Widget _buildSmallStatCard(
     BuildContext context,
     String title,
     String value,
     IconData icon,
+    Color iconColor,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: Theme.of(context).colorScheme.primary,
-            size: 32,
-          ),
-          const SizedBox(height: 8),
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurface,
                   fontWeight: FontWeight.bold,
                 ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             title,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
+                  fontSize: 10,
                 ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
