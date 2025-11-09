@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import '../../domain/entities/pomodoro_session.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/widgets/animations.dart';
@@ -37,33 +36,6 @@ class _PomodoroPageState extends State<PomodoroPage>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
-
-    _setupBackgroundServiceListener();
-  }
-
-  void _setupBackgroundServiceListener() {
-    // Listen for background service events
-    FlutterBackgroundService().on('sessionCompleted').listen((event) {
-      if (mounted) {
-        print(
-            'PomodoroPage: Received sessionCompleted from background service');
-        // Trigger completion in the bloc without playing sound again
-        // (sound was already played by background service notification)
-        context
-            .read<PomodoroBloc>()
-            .add(const PomodoroCompleted(playSound: false));
-      }
-    });
-
-    // Listen for session state updates from background service
-    FlutterBackgroundService().on('sessionStateUpdate').listen((event) {
-      if (mounted && event != null) {
-        print(
-            'PomodoroPage: Received sessionStateUpdate from background service');
-        // Sync with background service state
-        context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
-      }
-    });
   }
 
   @override
@@ -71,15 +43,16 @@ class _PomodoroPageState extends State<PomodoroPage>
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.resumed) {
-      print('PomodoroPage: App resumed - syncing with background service');
-      // When app resumes, sync with background service to get latest state
+      print(
+          'PomodoroPage: App resumed - checking if session completed while backgrounded');
+      // When app resumes, check if session completed while backgrounded
       if (mounted) {
         context.read<PomodoroBloc>().add(const PomodoroTimeSyncRequested());
       }
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       print(
-          'PomodoroPage: App backgrounded - background service will handle completion');
+          'PomodoroPage: App backgrounded - scheduled notification will handle completion');
     }
   }
 
@@ -146,6 +119,14 @@ class _PomodoroPageState extends State<PomodoroPage>
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
+          }
+
+          // Show break prompt dialog when work session completes
+          if (state is PomodoroSessionCompleted &&
+              state.completedSession.type == PomodoroType.work) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showBreakPromptDialog(context, state);
+            });
           }
         },
         builder: (context, state) {
@@ -249,12 +230,7 @@ class _PomodoroPageState extends State<PomodoroPage>
 
           const SizedBox(height: 20),
 
-          // Session Progress Indicator
-          if (state is PomodoroReady ||
-              state is PomodoroRunning ||
-              state is PomodoroPaused) ...[
-            _buildSessionProgress(context, state),
-          ],
+          // Session Progress Indicator - Removed
         ],
       ),
     );
@@ -432,54 +408,6 @@ class _PomodoroPageState extends State<PomodoroPage>
             isRunning ? Icons.pause : Icons.play_arrow,
             size: 32,
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSessionProgress(BuildContext context, PomodoroState state) {
-    int completedSessions = 0;
-    int totalSessions = 4; // Default sessions until long break
-
-    if (state is PomodoroReady) {
-      completedSessions =
-          state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
-      totalSessions = state.settings.sessionsUntilLongBreak;
-    } else if (state is PomodoroRunning) {
-      completedSessions =
-          state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
-      totalSessions = state.settings.sessionsUntilLongBreak;
-    } else if (state is PomodoroPaused) {
-      completedSessions =
-          state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
-      totalSessions = state.settings.sessionsUntilLongBreak;
-    }
-
-    return Column(
-      children: [
-        Text(
-          'Sessions until long break',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(totalSessions, (index) {
-            final isCompleted = index < completedSessions;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outline.withOpacity(0.3),
-              ),
-            );
-          }),
         ),
       ],
     );
@@ -718,6 +646,69 @@ class _PomodoroPageState extends State<PomodoroPage>
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  void _showBreakPromptDialog(
+    BuildContext context,
+    PomodoroSessionCompleted state,
+  ) {
+    final isLongBreak = state.nextSessionType == PomodoroType.longBreak;
+    final breakMinutes = isLongBreak
+        ? state.settings.longBreakMinutes
+        : state.settings.shortBreakMinutes;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.celebration,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            const Text('Work Session Complete!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Great job! You completed a ${state.completedSession.durationMinutes}-minute focus session.',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Time for a ${isLongBreak ? 'long' : 'short'} break ($breakMinutes minutes).',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context
+                  .read<PomodoroBloc>()
+                  .add(const PomodoroNextSessionRequested());
+            },
+            child: const Text('Skip Break'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              context.read<PomodoroBloc>().add(const PomodoroStartRequested());
+            },
+            icon: const Icon(Icons.self_improvement),
+            label: const Text('Start Break'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

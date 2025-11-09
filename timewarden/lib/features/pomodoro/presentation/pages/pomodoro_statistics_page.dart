@@ -9,6 +9,14 @@ import '../bloc/pomodoro_bloc.dart';
 import '../bloc/pomodoro_event.dart';
 import '../bloc/pomodoro_state.dart';
 
+enum StatisticsFilter {
+  today,
+  thisWeek,
+  thisMonth,
+  allTime,
+  custom,
+}
+
 class PomodoroStatisticsPage extends StatefulWidget {
   const PomodoroStatisticsPage({super.key});
 
@@ -17,6 +25,10 @@ class PomodoroStatisticsPage extends StatefulWidget {
 }
 
 class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
+  StatisticsFilter _selectedFilter = StatisticsFilter.thisWeek;
+  DateTime? _customStartDate;
+  DateTime? _customEndDate;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +44,13 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pomodoro Statistics'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+            tooltip: 'Filter',
+          ),
+        ],
       ),
       body: BlocBuilder<PomodoroBloc, PomodoroState>(
         builder: (context, state) {
@@ -42,19 +61,294 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
 
           // Handle history loaded state
           if (state is PomodoroHistoryLoaded) {
-            return _buildStatisticsView(state);
+            return _buildStatisticsView(_applyFilter(state));
           }
 
           // Try to extract statistics from other states
           final statsData = _extractStatsFromState(state);
           if (statsData != null) {
-            return _buildStatisticsView(statsData);
+            return _buildStatisticsView(_applyFilter(statsData));
           }
 
           // Show loading state
           return _buildLoadingView(context);
         },
       ),
+    );
+  }
+
+  PomodoroHistoryLoaded _applyFilter(PomodoroHistoryLoaded state) {
+    DateTime now = DateTime.now();
+    DateTime? startDate;
+    DateTime? endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+    switch (_selectedFilter) {
+      case StatisticsFilter.today:
+        startDate = DateTime(now.year, now.month, now.day);
+        break;
+      case StatisticsFilter.thisWeek:
+        startDate = now.subtract(Duration(days: now.weekday - 1));
+        startDate = DateTime(startDate.year, startDate.month, startDate.day);
+        break;
+      case StatisticsFilter.thisMonth:
+        startDate = DateTime(now.year, now.month, 1);
+        break;
+      case StatisticsFilter.allTime:
+        startDate = null;
+        endDate = null;
+        break;
+      case StatisticsFilter.custom:
+        startDate = _customStartDate;
+        endDate = _customEndDate;
+        break;
+    }
+
+    // Filter sessions
+    List<PomodoroSession> filteredSessions = state.sessions;
+    if (startDate != null || endDate != null) {
+      filteredSessions = state.sessions.where((session) {
+        if (startDate != null && session.startTime.isBefore(startDate)) {
+          return false;
+        }
+        if (endDate != null && session.startTime.isAfter(endDate)) {
+          return false;
+        }
+        return true;
+      }).toList();
+    }
+
+    // Recalculate statistics based on filtered sessions
+    PomodoroStatistics filteredTodayStats = _calculateStatistics(
+      filteredSessions.where((s) {
+        DateTime today = DateTime.now();
+        DateTime sessionDate = s.startTime;
+        return sessionDate.year == today.year &&
+            sessionDate.month == today.month &&
+            sessionDate.day == today.day;
+      }).toList(),
+    );
+
+    // Calculate weekly stats (last 7 days from filter end date or now)
+    DateTime weekEnd = endDate ?? now;
+    List<PomodoroStatistics> filteredWeeklyStats = [];
+    for (int i = 6; i >= 0; i--) {
+      DateTime day = weekEnd.subtract(Duration(days: i));
+      DateTime dayStart = DateTime(day.year, day.month, day.day);
+      DateTime dayEnd = DateTime(day.year, day.month, day.day, 23, 59, 59);
+
+      List<PomodoroSession> daySessions = filteredSessions.where((s) {
+        return s.startTime.isAfter(dayStart) && s.startTime.isBefore(dayEnd);
+      }).toList();
+
+      filteredWeeklyStats.add(_calculateStatistics(daySessions));
+    }
+
+    return PomodoroHistoryLoaded(
+      sessions: filteredSessions,
+      todayStats: filteredTodayStats,
+      weeklyStats: filteredWeeklyStats,
+      settings: state.settings,
+    );
+  }
+
+  PomodoroStatistics _calculateStatistics(List<PomodoroSession> sessions) {
+    int completedWorkSessions = 0;
+    int completedBreakSessions = 0;
+    int totalWorkMinutes = 0;
+    int totalBreakMinutes = 0;
+    int cancelledSessions = 0;
+    double totalCompletion = 0.0;
+
+    for (var session in sessions) {
+      if (session.status == SessionStatus.completed) {
+        if (session.type == PomodoroType.work) {
+          completedWorkSessions++;
+          totalWorkMinutes += session.elapsedTime.inMinutes;
+        } else {
+          completedBreakSessions++;
+          totalBreakMinutes += session.elapsedTime.inMinutes;
+        }
+        totalCompletion += session.progressPercentage;
+      } else if (session.status == SessionStatus.cancelled) {
+        cancelledSessions++;
+      }
+    }
+
+    double averageCompletion =
+        sessions.isNotEmpty ? totalCompletion / sessions.length : 0.0;
+
+    return PomodoroStatistics(
+      date: DateTime.now(),
+      completedWorkSessions: completedWorkSessions,
+      completedBreakSessions: completedBreakSessions,
+      totalWorkMinutes: totalWorkMinutes,
+      totalBreakMinutes: totalBreakMinutes,
+      cancelledSessions: cancelledSessions,
+      averageSessionCompletion: averageCompletion,
+      sessions: sessions,
+    );
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Filter Statistics'),
+        content: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<StatisticsFilter>(
+                  title: const Text('Today'),
+                  value: StatisticsFilter.today,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    setDialogState(() => _selectedFilter = value!);
+                  },
+                ),
+                RadioListTile<StatisticsFilter>(
+                  title: const Text('This Week'),
+                  value: StatisticsFilter.thisWeek,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    setDialogState(() => _selectedFilter = value!);
+                  },
+                ),
+                RadioListTile<StatisticsFilter>(
+                  title: const Text('This Month'),
+                  value: StatisticsFilter.thisMonth,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    setDialogState(() => _selectedFilter = value!);
+                  },
+                ),
+                RadioListTile<StatisticsFilter>(
+                  title: const Text('All Time'),
+                  value: StatisticsFilter.allTime,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    setDialogState(() => _selectedFilter = value!);
+                  },
+                ),
+                RadioListTile<StatisticsFilter>(
+                  title: const Text('Custom Range'),
+                  value: StatisticsFilter.custom,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    setDialogState(() => _selectedFilter = value!);
+                  },
+                ),
+                if (_selectedFilter == StatisticsFilter.custom) ...[
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.date_range),
+                    label: Text(
+                      _customStartDate == null
+                          ? 'Select Start Date'
+                          : 'Start: ${_formatDate(_customStartDate!)}',
+                    ),
+                    onPressed: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _customStartDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setDialogState(() => _customStartDate = date);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.date_range),
+                    label: Text(
+                      _customEndDate == null
+                          ? 'Select End Date'
+                          : 'End: ${_formatDate(_customEndDate!)}',
+                    ),
+                    onPressed: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _customEndDate ?? DateTime.now(),
+                        firstDate: _customStartDate ?? DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (date != null) {
+                        setDialogState(() => _customEndDate = date);
+                      }
+                    },
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              setState(() {}); // Refresh the main view with new filter
+              Navigator.pop(context);
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Widget _buildFilterChip() {
+    String filterText;
+    switch (_selectedFilter) {
+      case StatisticsFilter.today:
+        filterText = 'Today';
+        break;
+      case StatisticsFilter.thisWeek:
+        filterText = 'This Week';
+        break;
+      case StatisticsFilter.thisMonth:
+        filterText = 'This Month';
+        break;
+      case StatisticsFilter.allTime:
+        filterText = 'All Time';
+        break;
+      case StatisticsFilter.custom:
+        if (_customStartDate != null && _customEndDate != null) {
+          filterText =
+              '${_formatDate(_customStartDate!)} - ${_formatDate(_customEndDate!)}';
+        } else {
+          filterText = 'Custom Range';
+        }
+        break;
+    }
+
+    return Row(
+      children: [
+        Icon(
+          Icons.filter_list,
+          size: 16,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(width: 8),
+        Chip(
+          label: Text(filterText),
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          labelStyle: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+            fontWeight: FontWeight.w600,
+          ),
+          side: BorderSide.none,
+        ),
+      ],
     );
   }
 
@@ -166,6 +460,11 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Filter chip
+          _buildFilterChip(),
+
+          const SizedBox(height: 16),
+
           // Today's Summary
           SlideInAnimation(
             child: _buildTodaysSummary(context, state.todayStats),
@@ -185,14 +484,6 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
           SlideInAnimation(
             delay: const Duration(milliseconds: 200),
             child: _buildDetailedStats(context, state.todayStats),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Recent Sessions
-          SlideInAnimation(
-            delay: const Duration(milliseconds: 300),
-            child: _buildRecentSessions(context, state.sessions),
           ),
         ],
       ),
@@ -241,30 +532,6 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
                     '${stats.totalWorkMinutes}m',
                     Icons.timer_outlined,
                     Colors.blue.shade400,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    'Completion Rate',
-                    '${_safePercentage(stats.completionRate)}%',
-                    Icons.check_circle_outline,
-                    Colors.green.shade400,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    'Focus Efficiency',
-                    '${_safePercentage(stats.focusEfficiency)}%',
-                    Icons.trending_up,
-                    Colors.orange.shade400,
                   ),
                 ),
               ],
@@ -484,165 +751,6 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
         ],
       ),
     );
-  }
-
-  Widget _buildRecentSessions(
-      BuildContext context, List<PomodoroSession> sessions) {
-    final recentSessions = sessions.take(10).toList();
-
-    if (recentSessions.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Text(
-                'Recent Sessions',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No sessions yet. Start your first Pomodoro!',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Recent Sessions',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            ...recentSessions
-                .map((session) => _buildSessionItem(context, session)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSessionItem(BuildContext context, PomodoroSession session) {
-    Color sessionColor = _getSessionColor(session.type);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: sessionColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: sessionColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: sessionColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  session.displayType,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: sessionColor,
-                      ),
-                ),
-                if (session.taskDescription != null) ...[
-                  Text(
-                    session.taskDescription!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                _formatDuration(session.elapsedTime),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              Text(
-                _getStatusText(session.status),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: _getStatusColor(session.status),
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color _getSessionColor(PomodoroType type) {
-    switch (type) {
-      case PomodoroType.work:
-        return Colors.red.shade400;
-      case PomodoroType.shortBreak:
-        return Colors.green.shade400;
-      case PomodoroType.longBreak:
-        return Colors.blue.shade400;
-    }
-  }
-
-  Color _getStatusColor(SessionStatus status) {
-    switch (status) {
-      case SessionStatus.completed:
-        return Colors.green.shade600;
-      case SessionStatus.cancelled:
-        return Colors.red.shade600;
-      case SessionStatus.active:
-        return Colors.blue.shade600;
-      case SessionStatus.paused:
-        return Colors.orange.shade600;
-      case SessionStatus.pending:
-        return Colors.grey.shade600;
-    }
-  }
-
-  String _getStatusText(SessionStatus status) {
-    switch (status) {
-      case SessionStatus.completed:
-        return 'Completed';
-      case SessionStatus.cancelled:
-        return 'Cancelled';
-      case SessionStatus.active:
-        return 'Active';
-      case SessionStatus.paused:
-        return 'Paused';
-      case SessionStatus.pending:
-        return 'Pending';
-    }
   }
 
   String _safePercentage(double value) {

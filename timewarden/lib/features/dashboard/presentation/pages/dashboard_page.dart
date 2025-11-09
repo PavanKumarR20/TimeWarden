@@ -6,15 +6,19 @@ import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
 import '../../../habits/domain/entities/habit.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
+import '../../../pomodoro/presentation/pages/pomodoro_heatmap_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_event.dart';
 import '../../../pomodoro/domain/entities/pomodoro_session.dart';
 import '../../../journal/presentation/bloc/journal_bloc.dart';
 import '../../../journal/presentation/bloc/journal_event.dart';
-import '../../../journal/presentation/bloc/journal_state.dart';
+import '../../../journal/presentation/bloc/goal_bloc.dart';
+import '../../../journal/presentation/bloc/goal_event.dart';
+import '../../../journal/presentation/bloc/goal_state.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../journal/presentation/pages/secure_journal_page.dart';
+import 'perfect_days_heatmap_page.dart';
 import '../../../../core/services/quotes_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/firebase_service.dart';
@@ -169,9 +173,9 @@ class _DashboardPageState extends State<DashboardPage> {
               label: 'Pomodoro',
             ),
             NavigationDestination(
-              icon: Icon(Icons.book_outlined),
-              selectedIcon: Icon(Icons.book),
-              label: 'Journal',
+              icon: Icon(Icons.flag_outlined),
+              selectedIcon: Icon(Icons.flag),
+              label: 'Goals',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),
@@ -304,6 +308,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<HabitsBloc>().add(HabitsLoadRequested());
       context.read<JournalBloc>().add(const JournalLoadRequested());
+      context.read<GoalBloc>().add(GoalLoadRequested());
       _loadUserStats();
     });
   }
@@ -335,6 +340,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
         // Refresh all data when user pulls to refresh
         context.read<HabitsBloc>().add(HabitsLoadRequested());
         context.read<JournalBloc>().add(const JournalLoadRequested());
+        context.read<GoalBloc>().add(GoalLoadRequested());
         await _loadUserStats();
       },
       child: SingleChildScrollView(
@@ -376,12 +382,12 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
             // Quick stats
             BlocBuilder<HabitsBloc, HabitsState>(
               builder: (context, habitsState) {
-                return BlocBuilder<JournalBloc, JournalState>(
-                  builder: (context, journalState) {
+                return BlocBuilder<GoalBloc, GoalState>(
+                  builder: (context, goalState) {
                     // Calculate stats from real data
                     int totalHabits = 0;
                     int completedHabits = 0;
-                    int journalEntries = 0;
+                    int pendingGoals = 0;
                     int currentStreak =
                         _userStats?.perfectDays ?? 0; // Use backend stats
 
@@ -406,8 +412,14 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
                       // Perfect days now tracked automatically in habits BLoC
                     }
 
-                    if (journalState is JournalLoaded) {
-                      journalEntries = journalState.entries.length;
+                    if (goalState is GoalLoaded) {
+                      pendingGoals = goalState.goals
+                          .where((goal) => !goal.isCompleted)
+                          .length;
+                    } else if (goalState is GoalOperationSuccess) {
+                      pendingGoals = goalState.goals
+                          .where((goal) => !goal.isCompleted)
+                          .length;
                     }
 
                     return Column(
@@ -438,21 +450,33 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
                         Row(
                           children: [
                             Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'Perfect Days',
-                                '$currentStreak days',
-                                Icons.local_fire_department,
-                                Colors.red,
+                              child: InkWell(
+                                onTap: () {
+                                  HapticService.buttonTap();
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const PerfectDaysHeatmapPage(),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: _buildStatCard(
+                                  context,
+                                  'Perfect Days',
+                                  '$currentStreak days',
+                                  Icons.local_fire_department,
+                                  Colors.red,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 context,
-                                'Journal Entries',
-                                '$journalEntries',
-                                Icons.book,
+                                'Goals Pending',
+                                '$pendingGoals',
+                                Icons.flag,
                                 Colors.blue,
                               ),
                             ),
@@ -696,56 +720,57 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
     String title = 'Focus Time';
     String value = '0m';
 
-    // Calculate total completed work time
-    if (pomodoroState is PomodoroReady ||
-        pomodoroState is PomodoroRunning ||
-        pomodoroState is PomodoroPaused) {
-      int totalMinutes = 0;
+    // Get all-time focus time from user stats
+    final totalPomodoroSessions = _userStats?.totalPomodoroSessions ?? 0;
 
-      if (pomodoroState is PomodoroReady) {
-        totalMinutes = pomodoroState.completedWorkSessions *
-            pomodoroState.settings.workDurationMinutes;
-      } else if (pomodoroState is PomodoroRunning) {
-        totalMinutes = pomodoroState.completedWorkSessions *
-            pomodoroState.settings.workDurationMinutes;
-        // Add current session's completed time if it's a work session
-        if (pomodoroState.currentSession.type == PomodoroType.work) {
-          final totalDuration =
-              Duration(minutes: pomodoroState.settings.workDurationMinutes);
-          final completedTime =
-              totalDuration - pomodoroState.currentSession.remainingTime;
-          totalMinutes += completedTime.inMinutes;
-        }
-      } else if (pomodoroState is PomodoroPaused) {
-        totalMinutes = pomodoroState.completedWorkSessions *
-            pomodoroState.settings.workDurationMinutes;
-        // Add current session's completed time if it's a work session
-        if (pomodoroState.currentSession.type == PomodoroType.work) {
-          final totalDuration =
-              Duration(minutes: pomodoroState.settings.workDurationMinutes);
-          final completedTime =
-              totalDuration - pomodoroState.currentSession.remainingTime;
-          totalMinutes += completedTime.inMinutes;
-        }
+    // Estimate total minutes: each session is typically 25 minutes (can be adjusted)
+    // This is an estimation since we track session count, not exact minutes
+    int estimatedMinutes = totalPomodoroSessions * 25;
+
+    // If we have current running/paused session, add its progress
+    if (pomodoroState is PomodoroRunning) {
+      if (pomodoroState.currentSession.type == PomodoroType.work) {
+        final totalDuration =
+            Duration(minutes: pomodoroState.settings.workDurationMinutes);
+        final completedTime =
+            totalDuration - pomodoroState.currentSession.remainingTime;
+        estimatedMinutes += completedTime.inMinutes;
       }
+    } else if (pomodoroState is PomodoroPaused) {
+      if (pomodoroState.currentSession.type == PomodoroType.work) {
+        final totalDuration =
+            Duration(minutes: pomodoroState.settings.workDurationMinutes);
+        final completedTime =
+            totalDuration - pomodoroState.currentSession.remainingTime;
+        estimatedMinutes += completedTime.inMinutes;
+      }
+    }
 
-      if (totalMinutes >= 60) {
-        final hours = totalMinutes ~/ 60;
-        final minutes = totalMinutes % 60;
-        if (minutes > 0) {
-          value = '${hours}h ${minutes}m';
-        } else {
-          value = '${hours}h';
-        }
+    // Format the time
+    if (estimatedMinutes >= 60) {
+      final hours = estimatedMinutes ~/ 60;
+      final minutes = estimatedMinutes % 60;
+      if (minutes > 0) {
+        value = '${hours}h ${minutes}m';
       } else {
-        value = '${totalMinutes}m';
+        value = '${hours}h';
       }
+    } else {
+      value = '${estimatedMinutes}m';
     }
 
     return Card(
       child: InkWell(
         onTap: () {
-          widget.onNavigateToTab(2); // Navigate to Pomodoro tab
+          HapticService.buttonTap();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => BlocProvider.value(
+                value: context.read<PomodoroBloc>(),
+                child: const PomodoroHeatmapPage(),
+              ),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

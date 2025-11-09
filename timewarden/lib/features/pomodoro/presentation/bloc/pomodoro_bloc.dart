@@ -11,6 +11,7 @@ import '../../domain/repositories/pomodoro_repository.dart';
 import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/notification_service.dart';
 import 'pomodoro_event.dart';
 import 'pomodoro_state.dart';
 
@@ -27,6 +28,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
   final PomodoroRepository _repository;
   late final UserStatsRepositoryImpl _statsRepository;
+  final NotificationService _notificationService = NotificationService();
 
   PomodoroBloc(this._repository) : super(const PomodoroInitial()) {
     _statsRepository = UserStatsRepositoryImpl(FirebaseService());
@@ -204,6 +206,25 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       print('PomodoroBloc: Starting local timer (background service disabled)');
       _startMainTimer();
 
+      // Schedule notification for session completion (so sound plays even when backgrounded)
+      final completionTime = _currentSession!.startTime.add(
+        Duration(minutes: _currentSession!.durationMinutes),
+      );
+      final sessionTypeName = _currentSession!.type == PomodoroType.work
+          ? 'Work'
+          : _currentSession!.type == PomodoroType.longBreak
+              ? 'Long Break'
+              : 'Break';
+
+      print(
+          'PomodoroBloc: Scheduling completion notification for $completionTime');
+      await _notificationService.scheduleSessionCompletionNotification(
+        scheduledTime: completionTime,
+        sessionType: sessionTypeName,
+        message: 'Your session has ended',
+        nextSessionType: null,
+      );
+
       print('PomodoroBloc: Local timer started successfully');
 
       // Verify _currentSession is still not null before emitting
@@ -239,6 +260,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       HapticService.buttonTap();
 
       // No pause sound - keep it simple
+
+      // Cancel scheduled notification since we're pausing
+      await _notificationService.cancelScheduledSessionNotification();
 
       // Pause the main timer
       _mainTimer?.cancel();
@@ -280,6 +304,35 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         resumedAt: [..._currentSession!.resumedAt, DateTime.now()],
       );
 
+      // Reschedule notification with updated completion time
+      final now = DateTime.now();
+      final totalElapsed = now.difference(_currentSession!.startTime).inSeconds;
+      int pausedSeconds = 0;
+      for (int i = 0; i < _currentSession!.pausedAt.length; i++) {
+        final pauseStart = _currentSession!.pausedAt[i];
+        final resumeTime = i < _currentSession!.resumedAt.length
+            ? _currentSession!.resumedAt[i]
+            : now;
+        pausedSeconds += resumeTime.difference(pauseStart).inSeconds;
+      }
+      final activeSeconds = totalElapsed - pausedSeconds;
+      final remainingSeconds =
+          _currentSession!.totalDurationSeconds - activeSeconds;
+      final completionTime = now.add(Duration(seconds: remainingSeconds));
+
+      final sessionTypeName = _currentSession!.type == PomodoroType.work
+          ? 'Work'
+          : _currentSession!.type == PomodoroType.longBreak
+              ? 'Long Break'
+              : 'Break';
+
+      await _notificationService.scheduleSessionCompletionNotification(
+        scheduledTime: completionTime,
+        sessionType: sessionTypeName,
+        message: 'Your session has ended',
+        nextSessionType: null,
+      );
+
       // Emit running state immediately
       emit(PomodoroRunning(
         currentSession: _currentSession!,
@@ -303,6 +356,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     HapticService.buttonTap();
+
+    // Cancel scheduled notification
+    await _notificationService.cancelScheduledSessionNotification();
 
     // Stop the main timer
     _mainTimer?.cancel();
@@ -386,6 +442,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     _mainTimer?.cancel();
+
+    // Cancel the scheduled notification since we're handling completion now
+    await _notificationService.cancelScheduledSessionNotification();
 
     if (_currentSession != null) {
       print(
@@ -712,17 +771,43 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     print(
-        'PomodoroBloc: Sync requested but not implemented - no background service');
-    // No background service - just emit current state
-    if (_currentSession != null) {
-      if (_currentSession!.status == SessionStatus.paused) {
-        emit(PomodoroPaused(
-          currentSession: _currentSession!,
-          settings: _settings,
-          completedWorkSessions: _completedWorkSessions,
-          isLongBreakNext: _isLongBreakNext(),
-        ));
-      } else if (_currentSession!.status == SessionStatus.active) {
+        'PomodoroBloc: Time sync requested - checking if session completed while backgrounded');
+
+    if (_currentSession != null &&
+        _currentSession!.status == SessionStatus.active) {
+      // Calculate actual elapsed time accounting for pauses
+      final now = DateTime.now();
+      final totalElapsed = now.difference(_currentSession!.startTime).inSeconds;
+
+      // Calculate paused time
+      int pausedSeconds = 0;
+      for (int i = 0; i < _currentSession!.pausedAt.length; i++) {
+        final pauseStart = _currentSession!.pausedAt[i];
+        final resumeTime = i < _currentSession!.resumedAt.length
+            ? _currentSession!.resumedAt[i]
+            : pauseStart;
+        pausedSeconds += resumeTime.difference(pauseStart).inSeconds;
+      }
+
+      final activeSeconds = totalElapsed - pausedSeconds;
+
+      // Update current session with actual time
+      _currentSession = _currentSession!.copyWith(
+        timeSpentSeconds: activeSeconds,
+      );
+
+      // Check if session should have completed while backgrounded
+      if (_currentSession!.remainingSeconds <= 0) {
+        print(
+            'PomodoroBloc: Session completed while backgrounded - triggering completion');
+        // Restart the timer to trigger completion logic
+        _startMainTimer();
+        add(const PomodoroCompleted());
+        return;
+      } else {
+        print('PomodoroBloc: Session still active - resuming timer');
+        // Resume the timer
+        _startMainTimer();
         emit(PomodoroRunning(
           currentSession: _currentSession!,
           settings: _settings,
@@ -730,6 +815,14 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           isLongBreakNext: _isLongBreakNext(),
         ));
       }
+    } else if (_currentSession != null &&
+        _currentSession!.status == SessionStatus.paused) {
+      emit(PomodoroPaused(
+        currentSession: _currentSession!,
+        settings: _settings,
+        completedWorkSessions: _completedWorkSessions,
+        isLongBreakNext: _isLongBreakNext(),
+      ));
     } else {
       emit(PomodoroReady(
         settings: _settings,

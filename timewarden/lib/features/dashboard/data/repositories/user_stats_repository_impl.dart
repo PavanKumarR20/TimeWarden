@@ -84,13 +84,19 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
   }
 
   @override
-  Future<void> incrementPerfectDays(String userId) async {
-    LogService.debug('Incrementing perfect days for: $userId',
+  Future<void> incrementPerfectDays(String userId, {DateTime? date}) async {
+    final perfectDate = date ?? DateTime.now();
+    final dateOnly =
+        DateTime(perfectDate.year, perfectDate.month, perfectDate.day);
+
+    LogService.debug('Incrementing perfect days for: $userId on $dateOnly',
         tag: 'UserStatsRepository');
 
     try {
       await _statsCollection.doc(userId).update({
         'perfectDays': FieldValue.increment(1),
+        'perfectDayDates':
+            FieldValue.arrayUnion([Timestamp.fromDate(dateOnly)]),
         'lastUpdated': Timestamp.now(),
       });
       LogService.debug('Successfully incremented perfect days',
@@ -106,7 +112,8 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
         LogService.debug(
             'Document not found, creating initial stats with 1 perfect day',
             tag: 'UserStatsRepository');
-        await _createInitialStats(userId, perfectDays: 1);
+        await _createInitialStats(userId,
+            perfectDays: 1, perfectDayDates: [dateOnly]);
       } else {
         rethrow;
       }
@@ -114,8 +121,12 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
   }
 
   @override
-  Future<void> decrementPerfectDays(String userId) async {
-    LogService.debug('Decrementing perfect days for: $userId',
+  Future<void> decrementPerfectDays(String userId, {DateTime? date}) async {
+    final perfectDate = date ?? DateTime.now();
+    final dateOnly =
+        DateTime(perfectDate.year, perfectDate.month, perfectDate.day);
+
+    LogService.debug('Decrementing perfect days for: $userId on $dateOnly',
         tag: 'UserStatsRepository');
 
     try {
@@ -129,6 +140,8 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
 
       await _statsCollection.doc(userId).update({
         'perfectDays': FieldValue.increment(-1),
+        'perfectDayDates':
+            FieldValue.arrayRemove([Timestamp.fromDate(dateOnly)]),
         'lastUpdated': Timestamp.now(),
       });
       LogService.debug('Successfully decremented perfect days',
@@ -200,6 +213,7 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
   Future<void> _createInitialStats(
     String userId, {
     int perfectDays = 0,
+    List<DateTime>? perfectDayDates,
     int totalHabitsCreated = 0,
     int totalPomodoroSessions = 0,
     int totalJournalEntries = 0,
@@ -214,6 +228,7 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
     final stats = UserStats(
       userId: userId,
       perfectDays: perfectDays,
+      perfectDayDates: perfectDayDates ?? [],
       totalHabitsCreated: totalHabitsCreated,
       totalPomodoroSessions: totalPomodoroSessions,
       totalJournalEntries: totalJournalEntries,
