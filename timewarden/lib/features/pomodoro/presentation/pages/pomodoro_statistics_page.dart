@@ -117,16 +117,8 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       }).toList();
     }
 
-    // Recalculate statistics based on filtered sessions
-    PomodoroStatistics filteredTodayStats = _calculateStatistics(
-      filteredSessions.where((s) {
-        DateTime today = DateTime.now();
-        DateTime sessionDate = s.startTime;
-        return sessionDate.year == today.year &&
-            sessionDate.month == today.month &&
-            sessionDate.day == today.day;
-      }).toList(),
-    );
+    // Recalculate statistics based on ALL filtered sessions (not just today)
+    PomodoroStatistics filteredStats = _calculateStatistics(filteredSessions);
 
     // Calculate weekly stats (last 7 days from filter end date or now)
     DateTime weekEnd = endDate ?? now;
@@ -145,7 +137,7 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
 
     return PomodoroHistoryLoaded(
       sessions: filteredSessions,
-      todayStats: filteredTodayStats,
+      todayStats: filteredStats, // Use filtered stats instead of just today
       weeklyStats: filteredWeeklyStats,
       settings: state.settings,
     );
@@ -465,9 +457,9 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
 
           const SizedBox(height: 16),
 
-          // Today's Summary
+          // Summary with dynamic heading
           SlideInAnimation(
-            child: _buildTodaysSummary(context, state.todayStats),
+            child: _buildSummary(context, state.todayStats),
           ),
 
           const SizedBox(height: 24),
@@ -490,7 +482,34 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
     );
   }
 
-  Widget _buildTodaysSummary(BuildContext context, PomodoroStatistics stats) {
+  Widget _buildSummary(BuildContext context, PomodoroStatistics stats) {
+    // Get dynamic heading based on selected filter
+    String heading;
+    IconData icon;
+
+    switch (_selectedFilter) {
+      case StatisticsFilter.today:
+        heading = 'Today\'s Progress';
+        icon = Icons.today;
+        break;
+      case StatisticsFilter.thisWeek:
+        heading = 'This Week\'s Progress';
+        icon = Icons.date_range;
+        break;
+      case StatisticsFilter.thisMonth:
+        heading = 'This Month\'s Progress';
+        icon = Icons.calendar_month;
+        break;
+      case StatisticsFilter.allTime:
+        heading = 'All Time Progress';
+        icon = Icons.bar_chart;
+        break;
+      case StatisticsFilter.custom:
+        heading = 'Custom Period Progress';
+        icon = Icons.filter_list;
+        break;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -500,12 +519,12 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
             Row(
               children: [
                 Icon(
-                  Icons.today,
+                  icon,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Today\'s Progress',
+                  heading,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -592,8 +611,29 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
       BuildContext context, List<PomodoroStatistics> weeklyStats) {
     // Safety check for empty or null data
     if (weeklyStats.isEmpty) {
-      return _buildEmptyChartMessage(context, 'No weekly data available');
+      return _buildEmptyChartMessage(context, 'No data available');
     }
+
+    // Dynamic heading based on filter
+    String chartTitle;
+    switch (_selectedFilter) {
+      case StatisticsFilter.today:
+        chartTitle = 'Today\'s Focus Time';
+        break;
+      case StatisticsFilter.thisWeek:
+        chartTitle = 'Weekly Focus Time (Last 7 Days)';
+        break;
+      case StatisticsFilter.thisMonth:
+        chartTitle = 'Weekly Focus Time (Last 7 Days)';
+        break;
+      case StatisticsFilter.allTime:
+        chartTitle = 'Weekly Focus Time (Last 7 Days)';
+        break;
+      case StatisticsFilter.custom:
+        chartTitle = 'Weekly Focus Time (Last 7 Days)';
+        break;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -601,7 +641,7 @@ class _PomodoroStatisticsPageState extends State<PomodoroStatisticsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Weekly Focus Time',
+              chartTitle,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
