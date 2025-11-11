@@ -27,17 +27,8 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
       }
 
       final data = doc.data() as Map<String, dynamic>;
-
-      // Convert Firestore Timestamps to DateTime
-      if (data['lastUpdated'] is Timestamp) {
-        data['lastUpdated'] =
-            (data['lastUpdated'] as Timestamp).toDate().toIso8601String();
-      }
-      if (data['createdAt'] is Timestamp) {
-        data['createdAt'] =
-            (data['createdAt'] as Timestamp).toDate().toIso8601String();
-      }
-
+      
+      // UserStats.fromJson now handles Timestamp conversion internally
       final stats = UserStats.fromJson(data);
       LogService.debug('Retrieved stats: ${stats.perfectDays} perfect days',
           tag: 'UserStatsRepository');
