@@ -27,7 +27,7 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
       }
 
       final data = doc.data() as Map<String, dynamic>;
-      
+
       // UserStats.fromJson now handles Timestamp conversion internally
       final stats = UserStats.fromJson(data);
       LogService.debug('Retrieved stats: ${stats.perfectDays} perfect days',

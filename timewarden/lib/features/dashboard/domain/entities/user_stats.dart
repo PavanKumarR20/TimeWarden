@@ -63,17 +63,15 @@ class UserStats extends Equatable {
     return UserStats(
       userId: json['userId'] as String,
       perfectDays: json['perfectDays'] as int? ?? 0,
-      perfectDayDates: (json['perfectDayDates'] as List<dynamic>?)
-              ?.map((d) {
-                if (d is Timestamp) {
-                  return d.toDate();
-                } else if (d is String) {
-                  return DateTime.parse(d);
-                } else {
-                  return DateTime.now();
-                }
-              })
-              .toList() ??
+      perfectDayDates: (json['perfectDayDates'] as List<dynamic>?)?.map((d) {
+            if (d is Timestamp) {
+              return d.toDate();
+            } else if (d is String) {
+              return DateTime.parse(d);
+            } else {
+              return DateTime.now();
+            }
+          }).toList() ??
           [],
       totalHabitsCreated: json['totalHabitsCreated'] as int? ?? 0,
       totalPomodoroSessions: json['totalPomodoroSessions'] as int? ?? 0,
