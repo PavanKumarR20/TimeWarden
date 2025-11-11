@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserStats extends Equatable {
   final String userId;
@@ -63,15 +64,33 @@ class UserStats extends Equatable {
       userId: json['userId'] as String,
       perfectDays: json['perfectDays'] as int? ?? 0,
       perfectDayDates: (json['perfectDayDates'] as List<dynamic>?)
-              ?.map((d) => DateTime.parse(d as String))
+              ?.map((d) {
+                if (d is Timestamp) {
+                  return d.toDate();
+                } else if (d is String) {
+                  return DateTime.parse(d);
+                } else {
+                  return DateTime.now();
+                }
+              })
               .toList() ??
           [],
       totalHabitsCreated: json['totalHabitsCreated'] as int? ?? 0,
       totalPomodoroSessions: json['totalPomodoroSessions'] as int? ?? 0,
       totalJournalEntries: json['totalJournalEntries'] as int? ?? 0,
-      lastUpdated: DateTime.parse(json['lastUpdated'] as String),
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      lastUpdated: _parseDateTime(json['lastUpdated']),
+      createdAt: _parseDateTime(json['createdAt']),
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    } else if (value is String) {
+      return DateTime.parse(value);
+    } else {
+      return DateTime.now();
+    }
   }
 
   @override

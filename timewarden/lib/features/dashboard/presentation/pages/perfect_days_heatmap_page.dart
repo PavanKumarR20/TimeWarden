@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../data/repositories/user_stats_repository_impl.dart';
+import '../../../habits/data/repositories/habit_repository_impl.dart';
 
 enum CalendarFilter {
   lastWeek,
@@ -84,19 +85,66 @@ class _PerfectDaysHeatmapPageState extends State<PerfectDaysHeatmapPage> {
       final statsRepository = UserStatsRepositoryImpl(FirebaseService());
       final userStats = await statsRepository.getUserStats(userId);
 
-      if (userStats == null || userStats.perfectDayDates.isEmpty) {
-        setState(() {
-          _perfectDays = [];
-          _isLoading = false;
-        });
-        return;
+      print('🔍 Perfect Days Heatmap Debug:');
+      print('   User Stats: ${userStats != null ? "Found" : "NULL"}');
+      print('   Perfect Days Count: ${userStats?.perfectDays ?? 0}');
+      
+      // Get all completed habits to reconstruct perfect days
+      final habitsRepository = HabitRepositoryImpl(FirebaseService());
+      List<DateTime> perfectDaysList = [];
+      
+      try {
+        final habits = await habitsRepository.getHabits();
+      
+      if (habits.isNotEmpty) {
+        // Find all dates where ALL active habits were completed
+        // Get the earliest habit creation date
+        DateTime earliestDate = habits
+            .map((h) => h.createdAt)
+            .reduce((a, b) => a.isBefore(b) ? a : b);
+        
+        DateTime checkDate = DateTime.now();
+        DateTime startDate = DateTime(earliestDate.year, earliestDate.month, earliestDate.day);
+        
+        // Check each day from earliest to today
+        while (checkDate.isAfter(startDate) || checkDate.isAtSameMomentAs(startDate)) {
+          final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
+          
+          // Get habits that existed on this day
+          final habitsForDay = habits.where((habit) {
+            final habitCreated = DateTime(
+              habit.createdAt.year,
+              habit.createdAt.month,
+              habit.createdAt.day,
+            );
+            return habitCreated.isBefore(dayStart) || habitCreated.isAtSameMomentAs(dayStart);
+          }).toList();
+          
+          if (habitsForDay.isNotEmpty) {
+            // Check if ALL habits were completed on this day
+            final allCompleted = habitsForDay.every((habit) {
+              return habit.completedDates.any((date) {
+                final completedDay = DateTime(date.year, date.month, date.day);
+                return completedDay.isAtSameMomentAs(dayStart);
+              });
+            });
+            
+            if (allCompleted) {
+              perfectDaysList.add(dayStart);
+            }
+          }
+          
+          checkDate = checkDate.subtract(const Duration(days: 1));
+        }
+      }
+      } catch (e) {
+        print('⚠️ Error loading habits: $e');
       }
 
-      print(
-          'DEBUG Perfect Days: Loaded ${userStats.perfectDayDates.length} perfect days from backend');
+      print('✅ Reconstructed ${perfectDaysList.length} perfect days from habits');
 
       setState(() {
-        _perfectDays = userStats.perfectDayDates;
+        _perfectDays = perfectDaysList;
         _isLoading = false;
       });
     } catch (e) {

@@ -6,7 +6,7 @@ import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
 import '../../../habits/domain/entities/habit.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
-import '../../../pomodoro/presentation/pages/pomodoro_heatmap_page.dart';
+import '../../../pomodoro/presentation/pages/pomodoro_statistics_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_event.dart';
@@ -767,7 +767,7 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
             MaterialPageRoute(
               builder: (context) => BlocProvider.value(
                 value: context.read<PomodoroBloc>(),
-                child: const PomodoroHeatmapPage(),
+                child: const PomodoroStatisticsPage(),
               ),
             ),
           );
