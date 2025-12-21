@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "timewarden",
+            "cwd": "timewarden",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "timewarden (profile mode)",
+            "cwd": "timewarden",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "timewarden (release mode)",
+            "cwd": "timewarden",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

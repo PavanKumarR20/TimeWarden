@@ -10,6 +10,7 @@ import '../../domain/entities/pomodoro_statistics.dart';
 import '../../domain/repositories/pomodoro_repository.dart';
 import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/log_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
 import 'pomodoro_event.dart';
@@ -81,7 +82,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       print(
           'PomodoroBloc: Loaded ${sessions.length} sessions, $_completedWorkSessions completed work sessions today');
     } catch (e) {
-      print('PomodoroBloc: Error loading sessions: $e');
+      LogService.debug('PomodoroBloc: Error loading sessions: $e');
       _sessions.clear();
       _completedWorkSessions = 0;
     }
@@ -105,7 +106,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   Future<void> close() async {
     _mainTimer?.cancel();
     _audioPlayer.dispose();
-    print('PomodoroBloc: Closing - timers cancelled');
+    LogService.debug('PomodoroBloc: Closing - timers cancelled');
     return super.close();
   }
 
@@ -151,7 +152,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         isLongBreakNext: _isLongBreakNext(),
       ));
 
-      print('PomodoroBloc: App started fresh - ready for new sessions');
+      LogService.debug(
+          'PomodoroBloc: App started fresh - ready for new sessions');
     } catch (e) {
       emit(PomodoroError('Failed to load Pomodoro: $e'));
     }
@@ -162,20 +164,20 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     try {
-      print('PomodoroBloc: Start requested - _settings: $_settings');
+      LogService.debug('PomodoroBloc: Start requested - _settings: $_settings');
       HapticService.pomodoroStart();
       print(
           'PomodoroBloc: Starting new session, notifications enabled: ${_settings.enableNotifications}');
 
-      print('PomodoroBloc: Getting next session type...');
+      LogService.debug('PomodoroBloc: Getting next session type...');
       final sessionType = _getNextSessionType();
-      print('PomodoroBloc: Session type: $sessionType');
+      LogService.debug('PomodoroBloc: Session type: $sessionType');
 
-      print('PomodoroBloc: Getting duration for type...');
+      LogService.debug('PomodoroBloc: Getting duration for type...');
       final duration = _getDurationForType(sessionType);
-      print('PomodoroBloc: Duration: $duration');
+      LogService.debug('PomodoroBloc: Duration: $duration');
 
-      print('PomodoroBloc: Creating PomodoroSession...');
+      LogService.debug('PomodoroBloc: Creating PomodoroSession...');
       _currentSession = PomodoroSession(
         id: const Uuid().v4(),
         type: sessionType,
@@ -190,20 +192,21 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Play appropriate start sound
       try {
         if (sessionType == PomodoroType.work) {
-          print('PomodoroBloc: Playing work session start sound');
+          LogService.debug('PomodoroBloc: Playing work session start sound');
           await _playSound('work_start.mp3');
         } else {
-          print('PomodoroBloc: Playing break session start sound');
+          LogService.debug('PomodoroBloc: Playing break session start sound');
           await _playSound('break_start.mp3');
         }
       } catch (e) {
-        print('PomodoroBloc: Error playing sound: $e');
+        LogService.debug('PomodoroBloc: Error playing sound: $e');
         // Continue execution even if sound fails
       }
 
       // Skip background service for now - just run local timer
       // This simplifies the implementation and avoids notification conflicts
-      print('PomodoroBloc: Starting local timer (background service disabled)');
+      LogService.debug(
+          'PomodoroBloc: Starting local timer (background service disabled)');
       _startMainTimer();
 
       // Schedule notification for session completion (so sound plays even when backgrounded)
@@ -225,7 +228,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         nextSessionType: null,
       );
 
-      print('PomodoroBloc: Local timer started successfully');
+      LogService.debug('PomodoroBloc: Local timer started successfully');
 
       // Verify _currentSession is still not null before emitting
       if (_currentSession == null) {
@@ -242,12 +245,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
-      print('PomodoroBloc: Successfully emitted PomodoroRunning state');
+      LogService.debug(
+          'PomodoroBloc: Successfully emitted PomodoroRunning state');
 
       // Save state
       await _saveState();
     } catch (e) {
-      print('PomodoroBloc: Error starting session: $e');
+      LogService.debug('PomodoroBloc: Error starting session: $e');
       emit(PomodoroError('Failed to start session: $e'));
     }
   }
@@ -266,7 +270,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
       // Pause the main timer
       _mainTimer?.cancel();
-      print('PomodoroBloc: Main timer paused');
+      LogService.debug('PomodoroBloc: Main timer paused');
 
       // Update session status locally
       _currentSession = _currentSession!.copyWith(
@@ -285,7 +289,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Disable notifications to keep it simple
       // await _updateNotification();
 
-      print('PomodoroBloc: Timer paused successfully');
+      LogService.debug('PomodoroBloc: Timer paused successfully');
     }
   }
 
@@ -347,7 +351,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Disable notifications to keep it simple
       // await _updateNotification();
 
-      print('PomodoroBloc: Timer resumed successfully');
+      LogService.debug('PomodoroBloc: Timer resumed successfully');
     }
   }
 
@@ -362,7 +366,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
     // Stop the main timer
     _mainTimer?.cancel();
-    print('PomodoroBloc: Main timer stopped');
+    LogService.debug('PomodoroBloc: Main timer stopped');
 
     // Update session status locally
     if (_currentSession != null) {
@@ -375,9 +379,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Save cancelled session to repository
       try {
         await _repository.saveSession(_currentSession!);
-        print('PomodoroBloc: Saved cancelled session to Firestore');
+        LogService.debug('PomodoroBloc: Saved cancelled session to Firestore');
       } catch (e) {
-        print('PomodoroBloc: Error saving cancelled session to Firestore: $e');
+        LogService.debug(
+            'PomodoroBloc: Error saving cancelled session to Firestore: $e');
       }
     }
 
@@ -391,7 +396,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     ));
 
     // No notifications or background service - keep it simple
-    print('PomodoroBloc: Timer stopped successfully');
+    LogService.debug('PomodoroBloc: Timer stopped successfully');
   }
 
   Future<void> _onTick(
@@ -455,7 +460,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
       // ALWAYS play completion sound (like Timer page does)
       try {
-        print('PomodoroBloc: Playing completion sound...');
+        LogService.debug('PomodoroBloc: Playing completion sound...');
         if (_currentSession!.type == PomodoroType.work) {
           await _playSound('session_complete.mp3');
         } else if (_currentSession!.type == PomodoroType.longBreak) {
@@ -463,9 +468,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         } else {
           await _playSound('break_complete.mp3');
         }
-        print('PomodoroBloc: Completion sound played successfully');
+        LogService.debug('PomodoroBloc: Completion sound played successfully');
       } catch (e) {
-        print('PomodoroBloc: Error playing completion sound: $e');
+        LogService.debug('PomodoroBloc: Error playing completion sound: $e');
       }
 
       _currentSession = _currentSession!.copyWith(
@@ -479,16 +484,16 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Save completed session to repository
       try {
         await _repository.saveSession(_currentSession!);
-        print('PomodoroBloc: Saved completed session to Firestore');
+        LogService.debug('PomodoroBloc: Saved completed session to Firestore');
 
         // Increment Pomodoro stats counter
         final userId = FirebaseService().currentUserId;
         if (userId != null) {
           await _statsRepository.incrementPomodoroSessions(userId);
-          print('PomodoroBloc: Incremented Pomodoro stats counter');
+          LogService.debug('PomodoroBloc: Incremented Pomodoro stats counter');
         }
       } catch (e) {
-        print('PomodoroBloc: Error saving session to Firestore: $e');
+        LogService.debug('PomodoroBloc: Error saving session to Firestore: $e');
         // Don't emit error here, just log it - session is still tracked locally
       }
 
@@ -535,7 +540,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     try {
       // Prevent multiple simultaneous skip break requests
       if (state is! PomodoroRunning && state is! PomodoroPaused) {
-        print('PomodoroBloc: Skip break requested but no valid active session');
+        LogService.debug(
+            'PomodoroBloc: Skip break requested but no valid active session');
         return;
       }
 
@@ -559,7 +565,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
       // Stop current timer immediately
       _mainTimer?.cancel();
-      print('PomodoroBloc: Cancelled timer for skip break');
+      LogService.debug('PomodoroBloc: Cancelled timer for skip break');
 
       // Mark current break as completed and add to sessions
       final completedBreak = currentSession.copyWith(
@@ -573,7 +579,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Save skipped break session to repository
       try {
         await _repository.saveSession(completedBreak);
-        print('PomodoroBloc: Saved skipped break session to Firestore');
+        LogService.debug(
+            'PomodoroBloc: Saved skipped break session to Firestore');
       } catch (e) {
         print(
             'PomodoroBloc: Error saving skipped break session to Firestore: $e');
@@ -612,7 +619,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
-      print('PomodoroBloc: Emitted PomodoroRunning state for new work session');
+      LogService.debug(
+          'PomodoroBloc: Emitted PomodoroRunning state for new work session');
 
       // Save state to ensure persistence
       await _saveState();
@@ -622,8 +630,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       print(
           'PomodoroBloc: Skip break completed successfully - now running ${nextSession.durationMinutes}min work session');
     } catch (e, stackTrace) {
-      print('PomodoroBloc: Error during skip break: $e');
-      print('Stack trace: $stackTrace');
+      LogService.debug('PomodoroBloc: Error during skip break: $e');
+      LogService.debug('Stack trace: $stackTrace');
       emit(PomodoroError('Failed to skip break: $e'));
     }
   }
@@ -650,7 +658,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     try {
-      print('Loading Pomodoro history...');
+      LogService.debug('Loading Pomodoro history...');
 
       // Refresh sessions from repository to get latest data
       try {
@@ -660,15 +668,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         print(
             'Refreshed sessions from repository: ${latestSessions.length} sessions');
       } catch (e) {
-        print('Error refreshing sessions from repository: $e');
+        LogService.debug('Error refreshing sessions from repository: $e');
         // Continue with existing sessions if repository fails
       }
 
       final today = event.date ?? DateTime.now();
-      print('Sessions count: ${_sessions.length}');
+      LogService.debug('Sessions count: ${_sessions.length}');
 
       final todayStats = PomodoroStatistics.fromSessions(today, _sessions);
-      print('Today stats calculated');
+      LogService.debug('Today stats calculated');
 
       // Generate weekly stats
       final weeklyStats = <PomodoroStatistics>[];
@@ -677,7 +685,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         final dayStats = PomodoroStatistics.fromSessions(date, _sessions);
         weeklyStats.add(dayStats);
       }
-      print('Weekly stats calculated: ${weeklyStats.length} days');
+      LogService.debug('Weekly stats calculated: ${weeklyStats.length} days');
 
       // If currently running or paused, update the current state with statistics data
       // instead of replacing it with PomodoroHistoryLoaded
@@ -692,7 +700,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           weeklyStats: weeklyStats,
           sessions: _sessions,
         ));
-        print('Updated PomodoroRunning state with statistics');
+        LogService.debug('Updated PomodoroRunning state with statistics');
       } else if (state is PomodoroPaused) {
         final currentState = state as PomodoroPaused;
         emit(PomodoroPaused(
@@ -704,7 +712,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           weeklyStats: weeklyStats,
           sessions: _sessions,
         ));
-        print('Updated PomodoroPaused state with statistics');
+        LogService.debug('Updated PomodoroPaused state with statistics');
       } else {
         // For other states, emit the normal PomodoroHistoryLoaded state
         emit(PomodoroHistoryLoaded(
@@ -713,18 +721,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           weeklyStats: weeklyStats,
           settings: _settings,
         ));
-        print('PomodoroHistoryLoaded state emitted');
+        LogService.debug('PomodoroHistoryLoaded state emitted');
       }
     } catch (e, stackTrace) {
-      print('Error loading history: $e');
-      print('Stack trace: $stackTrace');
+      LogService.debug('Error loading history: $e');
+      LogService.debug('Stack trace: $stackTrace');
       emit(PomodoroError('Failed to load history: $e'));
     }
-  }
-
-  void _startSyncTimer() {
-    // Disabled - using direct timer instead of background service sync
-    print('PomodoroBloc: Sync timer disabled - using direct timer approach');
   }
 
   PomodoroType _getNextSessionType() {
@@ -758,10 +761,6 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
   // Notifications disabled - simplified implementation
   Future<void> _updateNotification() async {
-    // Disabled
-  }
-
-  Future<void> _cancelNotification() async {
     // Disabled
   }
 
@@ -805,7 +804,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         add(const PomodoroCompleted());
         return;
       } else {
-        print('PomodoroBloc: Session still active - resuming timer');
+        LogService.debug('PomodoroBloc: Session still active - resuming timer');
         // Resume the timer
         _startMainTimer();
         emit(PomodoroRunning(
@@ -838,14 +837,14 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     Emitter<PomodoroState> emit,
   ) async {
     try {
-      print('PomodoroBloc: Resetting all Pomodoro state...');
+      LogService.debug('PomodoroBloc: Resetting all Pomodoro state...');
 
       // Provide haptic feedback for reset action
       HapticService.buttonTap();
 
       // Stop any running timer
       _mainTimer?.cancel();
-      print('PomodoroBloc: All timers cancelled');
+      LogService.debug('PomodoroBloc: All timers cancelled');
 
       // Update local state first - if there's a current session, mark it as cancelled
       if (_currentSession != null) {
@@ -883,12 +882,13 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       ));
 
       // No notifications or background service - simplified
-      print('PomodoroBloc: Reset completed - no persistence');
+      LogService.debug('PomodoroBloc: Reset completed - no persistence');
 
-      print('PomodoroBloc: Reset completed successfully - back to ready state');
+      LogService.debug(
+          'PomodoroBloc: Reset completed successfully - back to ready state');
     } catch (e, stackTrace) {
-      print('PomodoroBloc: Error during reset: $e');
-      print('Stack trace: $stackTrace');
+      LogService.debug('PomodoroBloc: Error during reset: $e');
+      LogService.debug('Stack trace: $stackTrace');
       emit(PomodoroError('Failed to reset Pomodoro: $e'));
     }
   }

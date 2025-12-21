@@ -34,7 +34,7 @@ class _JournalPageState extends State<JournalPage>
   void initState() {
     super.initState();
     _tabController = TabController(
-        length: 2, vsync: this, initialIndex: 1); // Start with Goals tab
+        length: 2, vsync: this, initialIndex: 0); // Start with Goals tab
     _tabController.addListener(() {
       setState(() {}); // Rebuild to update FAB
     });
@@ -689,33 +689,6 @@ class _JournalPageState extends State<JournalPage>
 
     // Mark goal as completed via BLoC
     _goalBloc.add(GoalCompletionToggled(goal.id));
-  }
-
-  void _updateGoalStatus(Goal goal) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Goal Status'),
-        content: const Text('Mark this goal as completed?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Goal marked as completed! 🎉'),
-                ),
-              );
-            },
-            child: const Text('Complete'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _deleteGoal(Goal goal) {
