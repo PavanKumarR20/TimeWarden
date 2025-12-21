@@ -1,16 +1,17 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'log_service.dart';
 
 class HapticService {
   static Future<void> lightImpact() async {
     try {
       await HapticFeedback.lightImpact();
       if (kDebugMode) {
-        print('HapticService: Light impact executed');
+        LogService.debug('HapticService: Light impact executed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('HapticService: Light impact failed - $e');
+        LogService.debug('HapticService: Light impact failed - $e');
       }
     }
   }
@@ -19,11 +20,11 @@ class HapticService {
     try {
       await HapticFeedback.mediumImpact();
       if (kDebugMode) {
-        print('HapticService: Medium impact executed');
+        LogService.debug('HapticService: Medium impact executed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('HapticService: Medium impact failed - $e');
+        LogService.debug('HapticService: Medium impact failed - $e');
       }
     }
   }
@@ -32,11 +33,11 @@ class HapticService {
     try {
       await HapticFeedback.heavyImpact();
       if (kDebugMode) {
-        print('HapticService: Heavy impact executed');
+        LogService.debug('HapticService: Heavy impact executed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('HapticService: Heavy impact failed - $e');
+        LogService.debug('HapticService: Heavy impact failed - $e');
       }
     }
   }
@@ -45,11 +46,11 @@ class HapticService {
     try {
       await HapticFeedback.selectionClick();
       if (kDebugMode) {
-        print('HapticService: Selection click executed');
+        LogService.debug('HapticService: Selection click executed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('HapticService: Selection click failed - $e');
+        LogService.debug('HapticService: Selection click failed - $e');
       }
     }
   }
@@ -58,11 +59,11 @@ class HapticService {
     try {
       await HapticFeedback.vibrate();
       if (kDebugMode) {
-        print('HapticService: Vibrate executed');
+        LogService.debug('HapticService: Vibrate executed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('HapticService: Vibrate failed - $e');
+        LogService.debug('HapticService: Vibrate failed - $e');
       }
     }
   }
@@ -70,35 +71,38 @@ class HapticService {
   // Specific haptic patterns for different actions
   static Future<void> habitCompleted() async {
     if (kDebugMode) {
-      print('HapticService: Habit completed - triggering heavy impact');
+      LogService.debug(
+          'HapticService: Habit completed - triggering heavy impact');
     }
     await heavyImpact();
   }
 
   static Future<void> habitUncompleted() async {
     if (kDebugMode) {
-      print('HapticService: Habit uncompleted - triggering medium impact');
+      LogService.debug(
+          'HapticService: Habit uncompleted - triggering medium impact');
     }
     await mediumImpact();
   }
 
   static Future<void> buttonTap() async {
     if (kDebugMode) {
-      print('HapticService: Button tap - triggering medium impact');
+      LogService.debug('HapticService: Button tap - triggering medium impact');
     }
     await mediumImpact();
   }
 
   static Future<void> successAction() async {
     if (kDebugMode) {
-      print('HapticService: Success action - triggering heavy impact');
+      LogService.debug(
+          'HapticService: Success action - triggering heavy impact');
     }
     await heavyImpact();
   }
 
   static Future<void> errorAction() async {
     if (kDebugMode) {
-      print('HapticService: Error action - triggering heavy impact');
+      LogService.debug('HapticService: Error action - triggering heavy impact');
     }
     await heavyImpact();
   }
@@ -106,7 +110,8 @@ class HapticService {
   // Additional stronger haptic patterns
   static Future<void> pomodoroStart() async {
     if (kDebugMode) {
-      print('HapticService: Pomodoro start - triggering heavy impact');
+      LogService.debug(
+          'HapticService: Pomodoro start - triggering heavy impact');
     }
     await heavyImpact();
   }
@@ -123,14 +128,15 @@ class HapticService {
 
   static Future<void> timerPause() async {
     if (kDebugMode) {
-      print('HapticService: Timer pause - triggering medium impact');
+      LogService.debug('HapticService: Timer pause - triggering medium impact');
     }
     await mediumImpact();
   }
 
   static Future<void> navigationTap() async {
     if (kDebugMode) {
-      print('HapticService: Navigation tap - triggering medium impact');
+      LogService.debug(
+          'HapticService: Navigation tap - triggering medium impact');
     }
     await mediumImpact();
   }
