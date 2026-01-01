@@ -23,6 +23,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   final _nameController = TextEditingController();
   // Description removed per new requirements
   final _notesController = TextEditingController();
+  final _pointsController = TextEditingController(text: '0');
 
   HabitFrequency _selectedFrequency = const HabitFrequency(
     type: HabitFrequencyType.daily,
@@ -79,6 +80,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
     if (widget.habit != null) {
       _nameController.text = widget.habit!.name;
       _notesController.text = widget.habit!.notes ?? '';
+      _pointsController.text = (widget.habit!.pointsValue ?? 0).toString();
       _selectedFrequency = widget.habit!.frequency;
       _selectedColor = widget.habit!.color;
       _selectedIcon = widget.habit!.icon;
@@ -100,6 +102,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
   void dispose() {
     _nameController.dispose();
     _notesController.dispose();
+    _pointsController.dispose();
     super.dispose();
   }
 
@@ -119,6 +122,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 reminderEnabled: _reminderEnabled,
                 reminderHour: _reminderEnabled ? _reminderTime.hour : null,
                 reminderMinute: _reminderEnabled ? _reminderTime.minute : null,
+                pointsValue: double.tryParse(_pointsController.text) ?? 0.0,
               )
             : Habit(
                 id: const Uuid().v4(),
@@ -138,6 +142,7 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 reminderEnabled: _reminderEnabled,
                 reminderHour: _reminderEnabled ? _reminderTime.hour : null,
                 reminderMinute: _reminderEnabled ? _reminderTime.minute : null,
+                pointsValue: double.tryParse(_pointsController.text) ?? 0.0,
               );
 
         print('Creating habit: ${habit.name} with ID: ${habit.id}');
@@ -258,6 +263,30 @@ class _AddEditHabitPageState extends State<AddEditHabitPage> {
                 setState(() {
                   _selectedFrequency = frequency;
                 });
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Points per completion
+            TextFormField(
+              controller: _pointsController,
+              decoration: const InputDecoration(
+                labelText: 'Points per completion',
+                hintText: '0',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.stars_outlined),
+                helperText: 'Points earned each time you complete this habit',
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              validator: (value) {
+                if (value != null && value.isNotEmpty) {
+                  final points = double.tryParse(value);
+                  if (points == null || points < 0) {
+                    return 'Please enter a valid number (0 or greater)';
+                  }
+                }
+                return null;
               },
             ),
             const SizedBox(height: 24),

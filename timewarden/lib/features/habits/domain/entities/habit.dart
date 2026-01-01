@@ -89,6 +89,10 @@ class Habit extends Equatable {
   final int? reminderHour; // 0-23
   final int? reminderMinute; // 0-59
 
+  // Points system
+  final double?
+      pointsValue; // Points earned per completion (nullable for backward compatibility)
+
   const Habit({
     required this.id,
     required this.name,
@@ -105,6 +109,7 @@ class Habit extends Equatable {
     this.reminderEnabled = false,
     this.reminderHour,
     this.reminderMinute,
+    this.pointsValue,
   });
 
   bool get isCompletedToday {
@@ -264,6 +269,7 @@ class Habit extends Equatable {
     bool? reminderEnabled,
     int? reminderHour,
     int? reminderMinute,
+    double? pointsValue,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -281,6 +287,7 @@ class Habit extends Equatable {
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
       reminderHour: reminderHour ?? this.reminderHour,
       reminderMinute: reminderMinute ?? this.reminderMinute,
+      pointsValue: pointsValue ?? this.pointsValue,
     );
   }
 
@@ -307,6 +314,7 @@ class Habit extends Equatable {
       'reminderEnabled': reminderEnabled,
       'reminderHour': reminderHour,
       'reminderMinute': reminderMinute,
+      'pointsValue': pointsValue,
     };
   }
 
@@ -342,6 +350,7 @@ class Habit extends Equatable {
       reminderEnabled: json['reminderEnabled'] as bool? ?? false,
       reminderHour: json['reminderHour'] as int?,
       reminderMinute: json['reminderMinute'] as int?,
+      pointsValue: (json['pointsValue'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -362,5 +371,6 @@ class Habit extends Equatable {
         reminderEnabled,
         reminderHour,
         reminderMinute,
+        pointsValue,
       ];
 }

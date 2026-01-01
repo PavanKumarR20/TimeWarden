@@ -4,6 +4,7 @@ import '../../domain/entities/habit.dart';
 import '../../domain/repositories/habit_repository.dart';
 import '../../../../core/services/log_service.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/services/points_service.dart';
 import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,6 +58,24 @@ class HabitCompletionToggled extends HabitsEvent {
   List<Object> get props => [habitId, date];
 }
 
+class PointsManuallyAdjusted extends HabitsEvent {
+  final double delta;
+
+  const PointsManuallyAdjusted(this.delta);
+
+  @override
+  List<Object> get props => [delta];
+}
+
+class PointRewardDescriptionUpdated extends HabitsEvent {
+  final String description;
+
+  const PointRewardDescriptionUpdated(this.description);
+
+  @override
+  List<Object> get props => [description];
+}
+
 // States
 abstract class HabitsState extends Equatable {
   const HabitsState();
@@ -99,6 +118,8 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
     on<HabitUpdated>(_onHabitUpdated);
     on<HabitDeleted>(_onHabitDeleted);
     on<HabitCompletionToggled>(_onHabitCompletionToggled);
+    on<PointsManuallyAdjusted>(_onPointsManuallyAdjusted);
+    on<PointRewardDescriptionUpdated>(_onPointRewardDescriptionUpdated);
   }
 
   Future<void> _onHabitsLoadRequested(
@@ -112,6 +133,10 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
       final habits = await _habitRepository.getHabits();
       LogService.debug('Loaded ${habits.length} habits successfully',
           tag: 'HabitsBloc');
+
+      // Check and reset daily points if needed
+      await _checkAndResetDailyPoints();
+
       emit(HabitsLoaded(habits));
     } catch (e) {
       LogService.error('Error loading habits', tag: 'HabitsBloc', error: e);
@@ -227,8 +252,12 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         // Then update the backend asynchronously
         if (isCompleted) {
           await _habitRepository.markHabitIncomplete(event.habitId, event.date);
+          // Deduct points when uncompleting
+          await _deductPointsForHabit(habit);
         } else {
           await _habitRepository.markHabitComplete(event.habitId, event.date);
+          // Award points when completing
+          await _awardPointsForHabit(habit);
         }
 
         LogService.debug('Habit completion toggled successfully in backend',
@@ -381,6 +410,135 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
       await prefs.setBool(key, true);
     } catch (e) {
       LogService.error('Error marking today as incremented',
+          error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<void> _checkAndResetDailyPoints() async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      if (userId == null) return;
+
+      final userStats = await _statsRepository.getUserStats(userId);
+      if (userStats == null) return;
+
+      final resetStats = PointsService.checkAndResetDaily(userStats);
+      if (resetStats.totalPointsToday != userStats.totalPointsToday) {
+        await _statsRepository.updateUserStats(resetStats);
+      }
+    } catch (e) {
+      LogService.error('Error checking daily points reset',
+          error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<void> _awardPointsForHabit(Habit habit) async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      if (userId == null) return;
+
+      final pointsToAward = habit.pointsValue ?? 0;
+      if (pointsToAward <= 0) return;
+
+      final userStats = await _statsRepository.getUserStats(userId);
+      if (userStats == null) return;
+
+      final newTotal = PointsService.awardPoints(
+        userStats: userStats,
+        pointsToAward: pointsToAward,
+      );
+
+      await _statsRepository.updateUserStats(
+        userStats.copyWith(totalPointsToday: newTotal),
+      );
+
+      LogService.info(
+          'Awarded $pointsToAward points for completing ${habit.name}',
+          tag: 'HabitsBloc');
+    } catch (e) {
+      LogService.error('Error awarding points', error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<void> _deductPointsForHabit(Habit habit) async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      if (userId == null) return;
+
+      final pointsToDeduct = habit.pointsValue ?? 0;
+      if (pointsToDeduct <= 0) return;
+
+      final userStats = await _statsRepository.getUserStats(userId);
+      if (userStats == null) return;
+
+      final newTotal = PointsService.deductPoints(
+        userStats: userStats,
+        pointsToDeduct: pointsToDeduct,
+      );
+
+      await _statsRepository.updateUserStats(
+        userStats.copyWith(totalPointsToday: newTotal),
+      );
+
+      LogService.info(
+          'Deducted $pointsToDeduct points for uncompleting ${habit.name}',
+          tag: 'HabitsBloc');
+    } catch (e) {
+      LogService.error('Error deducting points', error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<void> _onPointsManuallyAdjusted(
+    PointsManuallyAdjusted event,
+    Emitter<HabitsState> emit,
+  ) async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      if (userId == null) return;
+
+      final userStats = await _statsRepository.getUserStats(userId);
+      if (userStats == null) return;
+
+      final newTotal = PointsService.manualAdjustPoints(
+        userStats: userStats,
+        delta: event.delta,
+      );
+
+      await _statsRepository.updateUserStats(
+        userStats.copyWith(totalPointsToday: newTotal),
+      );
+
+      // Emit current state to trigger UI refresh
+      if (state is HabitsLoaded) {
+        emit(HabitsLoaded((state as HabitsLoaded).habits));
+      }
+
+      LogService.info('Manually adjusted points by ${event.delta}',
+          tag: 'HabitsBloc');
+    } catch (e) {
+      LogService.error('Error manually adjusting points',
+          error: e, tag: 'HabitsBloc');
+    }
+  }
+
+  Future<void> _onPointRewardDescriptionUpdated(
+    PointRewardDescriptionUpdated event,
+    Emitter<HabitsState> emit,
+  ) async {
+    try {
+      final userId = FirebaseService().currentUserId;
+      if (userId == null) return;
+
+      final userStats = await _statsRepository.getUserStats(userId);
+      if (userStats == null) return;
+
+      await _statsRepository.updateUserStats(
+        userStats.copyWith(pointRewardDescription: event.description),
+      );
+
+      LogService.info('Updated point reward description', tag: 'HabitsBloc');
+    } catch (e) {
+      LogService.error('Error updating reward description',
           error: e, tag: 'HabitsBloc');
     }
   }
