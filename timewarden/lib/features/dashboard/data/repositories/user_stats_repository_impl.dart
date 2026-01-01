@@ -239,6 +239,8 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
     data['lastUpdated'] =
         Timestamp.fromDate(DateTime.parse(data['lastUpdated']));
     data['createdAt'] = Timestamp.fromDate(DateTime.parse(data['createdAt']));
+    data['lastPointsResetDate'] =
+        Timestamp.fromDate(DateTime.parse(data['lastPointsResetDate']));
 
     return data;
   }

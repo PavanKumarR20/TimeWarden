@@ -6,11 +6,9 @@ import '../../../habits/presentation/pages/habits_page.dart';
 import '../../../habits/presentation/bloc/habits_bloc.dart';
 import '../../../habits/domain/entities/habit.dart';
 import '../../../pomodoro/presentation/pages/pomodoro_page.dart';
-import '../../../pomodoro/presentation/pages/pomodoro_statistics_page.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_state.dart';
 import '../../../pomodoro/presentation/bloc/pomodoro_event.dart';
-import '../../../pomodoro/domain/entities/pomodoro_session.dart';
 import '../../../journal/presentation/bloc/journal_bloc.dart';
 import '../../../journal/presentation/bloc/journal_event.dart';
 import '../../../journal/presentation/bloc/goal_bloc.dart';
@@ -22,6 +20,7 @@ import 'perfect_days_heatmap_page.dart';
 import '../../../../core/services/quotes_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/firebase_service.dart';
+import '../../../../core/widgets/points_detail_dialog.dart';
 import '../../domain/entities/user_stats.dart';
 import '../../data/repositories/user_stats_repository_impl.dart';
 
@@ -316,8 +315,13 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh stats when the widget becomes visible again
-    _loadUserStats();
+    // Refresh all data when the widget becomes visible again
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<HabitsBloc>().add(HabitsLoadRequested());
+        _loadUserStats();
+      }
+    });
   }
 
   Future<void> _loadUserStats() async {
@@ -335,334 +339,345 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    return RefreshIndicator(
-      onRefresh: () async {
-        // Refresh all data when user pulls to refresh
-        context.read<HabitsBloc>().add(HabitsLoadRequested());
-        context.read<JournalBloc>().add(const JournalLoadRequested());
-        context.read<GoalBloc>().add(GoalLoadRequested());
-        await _loadUserStats();
+    return BlocListener<HabitsBloc, HabitsState>(
+      listener: (context, state) {
+        // Reload stats whenever habits state changes (completion, points adjustment, etc.)
+        if (state is HabitsLoaded) {
+          _loadUserStats();
+        }
       },
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Daily Quote card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.format_quote,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Quote of the Day',
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDailyQuote(),
-                  ],
+      child: RefreshIndicator(
+        onRefresh: () async {
+          // Refresh all data when user pulls to refresh
+          context.read<HabitsBloc>().add(HabitsLoadRequested());
+          context.read<JournalBloc>().add(const JournalLoadRequested());
+          context.read<GoalBloc>().add(GoalLoadRequested());
+          await _loadUserStats();
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Daily Quote card
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.format_quote,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Quote of the Day',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDailyQuote(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Quick stats
-            BlocBuilder<HabitsBloc, HabitsState>(
-              builder: (context, habitsState) {
-                return BlocBuilder<GoalBloc, GoalState>(
-                  builder: (context, goalState) {
-                    // Calculate stats from real data
-                    int totalHabits = 0;
-                    int completedHabits = 0;
-                    int pendingGoals = 0;
-                    int currentStreak =
-                        _userStats?.perfectDays ?? 0; // Use backend stats
+              // Quick stats
+              BlocBuilder<HabitsBloc, HabitsState>(
+                builder: (context, habitsState) {
+                  return BlocBuilder<GoalBloc, GoalState>(
+                    builder: (context, goalState) {
+                      // Calculate stats from real data
+                      int totalHabits = 0;
+                      int completedHabits = 0;
+                      int pendingGoals = 0;
+                      int currentStreak =
+                          _userStats?.perfectDays ?? 0; // Use backend stats
 
-                    if (habitsState is HabitsLoaded) {
-                      // Count all habits that should be done today (active habits)
-                      // Include all habits that haven't met their period target OR are daily habits
-                      final activeHabitsForToday =
-                          habitsState.habits.where((habit) {
-                        // Always include daily habits
-                        if (habit.frequency.type == HabitFrequencyType.daily) {
-                          return true;
-                        }
-                        // For other frequencies, include if not completed for period
-                        return !habit.isCompletedForCurrentPeriod;
-                      }).toList();
+                      if (habitsState is HabitsLoaded) {
+                        // Count all habits that should be done today (active habits)
+                        // Include all habits that haven't met their period target OR are daily habits
+                        final activeHabitsForToday =
+                            habitsState.habits.where((habit) {
+                          // Always include daily habits
+                          if (habit.frequency.type ==
+                              HabitFrequencyType.daily) {
+                            return true;
+                          }
+                          // For other frequencies, include if not completed for period
+                          return !habit.isCompletedForCurrentPeriod;
+                        }).toList();
 
-                      totalHabits = activeHabitsForToday.length;
-                      completedHabits = activeHabitsForToday.where((habit) {
-                        return habit.isCompletedToday;
-                      }).length;
+                        totalHabits = activeHabitsForToday.length;
+                        completedHabits = activeHabitsForToday.where((habit) {
+                          return habit.isCompletedToday;
+                        }).length;
 
-                      // Perfect days now tracked automatically in habits BLoC
+                        // Perfect days now tracked automatically in habits BLoC
+                      }
+
+                      if (goalState is GoalLoaded) {
+                        pendingGoals = goalState.goals
+                            .where((goal) => !goal.isCompleted)
+                            .length;
+                      } else if (goalState is GoalOperationSuccess) {
+                        pendingGoals = goalState.goals
+                            .where((goal) => !goal.isCompleted)
+                            .length;
+                      }
+
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatCard(
+                                  context,
+                                  'Today\'s Habits',
+                                  '$completedHabits/$totalHabits',
+                                  Icons.check_circle,
+                                  Colors.green,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: BlocBuilder<PomodoroBloc, PomodoroState>(
+                                  builder: (context, pomodoroState) {
+                                    return _buildPomodoroStatCard(
+                                        context, pomodoroState);
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticService.buttonTap();
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const PerfectDaysHeatmapPage(),
+                                      ),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: _buildStatCard(
+                                    context,
+                                    'Perfect Days',
+                                    '$currentStreak days',
+                                    Icons.local_fire_department,
+                                    Colors.red,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _buildStatCard(
+                                  context,
+                                  'Goals Pending',
+                                  '$pendingGoals',
+                                  Icons.flag,
+                                  Colors.blue,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Today's habits section
+              Text(
+                'Today\'s Habits',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              BlocBuilder<HabitsBloc, HabitsState>(
+                builder: (context, state) {
+                  if (state is HabitsLoading) {
+                    return const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    );
+                  }
+
+                  if (state is HabitsLoaded) {
+                    if (state.habits.isEmpty) {
+                      return Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 48,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No habits yet',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap the Habits tab to create your first habit!',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
 
-                    if (goalState is GoalLoaded) {
-                      pendingGoals = goalState.goals
-                          .where((goal) => !goal.isCompleted)
-                          .length;
-                    } else if (goalState is GoalOperationSuccess) {
-                      pendingGoals = goalState.goals
-                          .where((goal) => !goal.isCompleted)
-                          .length;
+                    // Show today's incomplete habits only (excluding habits completed for period)
+                    final today = DateTime.now();
+                    final incompleteHabits = state.habits
+                        .where((habit) {
+                          // Exclude habits that are completed for the current period
+                          if (habit.isCompletedForCurrentPeriod) {
+                            return false;
+                          }
+
+                          final isCompletedToday = habit.completedDates.any(
+                              (date) =>
+                                  date.year == today.year &&
+                                  date.month == today.month &&
+                                  date.day == today.day);
+                          return !isCompletedToday; // Only show incomplete habits
+                        })
+                        .take(3)
+                        .toList();
+
+                    if (incompleteHabits.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.celebration,
+                                size: 64,
+                                color: Colors.green,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'All habits completed! 🎉',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Great job staying disciplined!',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
 
                     return Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'Today\'s Habits',
-                                '$completedHabits/$totalHabits',
-                                Icons.check_circle,
-                                Colors.green,
-                              ),
+                      children: incompleteHabits.map((habit) {
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.circle_outlined,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: BlocBuilder<PomodoroBloc, PomodoroState>(
-                                builder: (context, pomodoroState) {
-                                  return _buildPomodoroStatCard(
-                                      context, pomodoroState);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  HapticService.buttonTap();
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const PerfectDaysHeatmapPage(),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: _buildStatCard(
-                                  context,
-                                  'Perfect Days',
-                                  '$currentStreak days',
-                                  Icons.local_fire_department,
-                                  Colors.red,
+                            title: Text(habit.name),
+                            subtitle: const Text('Tap to complete'),
+                            onTap: () async {
+                              // Complete the habit
+                              context.read<HabitsBloc>().add(
+                                  HabitCompletionToggled(
+                                      habitId: habit.id, date: today));
+
+                              // Show feedback
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('${habit.name} completed! 🎉'),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: Colors.green,
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'Goals Pending',
-                                '$pendingGoals',
-                                Icons.flag,
-                                Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Today's habits section
-            Text(
-              'Today\'s Habits',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            BlocBuilder<HabitsBloc, HabitsState>(
-              builder: (context, state) {
-                if (state is HabitsLoading) {
-                  return const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  );
-                }
-
-                if (state is HabitsLoaded) {
-                  if (state.habits.isEmpty) {
-                    return Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 48,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No habits yet',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap the Habits tab to create your first habit!',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  // Show today's incomplete habits only (excluding habits completed for period)
-                  final today = DateTime.now();
-                  final incompleteHabits = state.habits
-                      .where((habit) {
-                        // Exclude habits that are completed for the current period
-                        if (habit.isCompletedForCurrentPeriod) {
-                          return false;
-                        }
-
-                        final isCompletedToday = habit.completedDates.any(
-                            (date) =>
-                                date.year == today.year &&
-                                date.month == today.month &&
-                                date.day == today.day);
-                        return !isCompletedToday; // Only show incomplete habits
-                      })
-                      .take(3)
-                      .toList();
-
-                  if (incompleteHabits.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.celebration,
-                              size: 64,
-                              color: Colors.green,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'All habits completed! 🎉',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Great job staying disciplined!',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  return Column(
-                    children: incompleteHabits.map((habit) {
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.circle_outlined,
-                            color: Theme.of(context).colorScheme.primary,
+                              );
+                            },
                           ),
-                          title: Text(habit.name),
-                          subtitle: const Text('Tap to complete'),
-                          onTap: () async {
-                            // Complete the habit
-                            context.read<HabitsBloc>().add(
-                                HabitCompletionToggled(
-                                    habitId: habit.id, date: today));
+                        );
+                      }).toList(),
+                    );
+                  }
 
-                            // Show feedback
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${habit.name} completed! 🎉'),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  );
-                }
-
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Error loading habits',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ],
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Error loading habits',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ), // Add this comma for the habits section
-          ],
-        ),
-      ), // Close SingleChildScrollView (child of RefreshIndicator)
-    ); // Close RefreshIndicator
+                  );
+                },
+              ), // Add this comma for the habits section
+            ],
+          ),
+        ), // Close SingleChildScrollView (child of RefreshIndicator)
+      ), // Close RefreshIndicator
+    ); // Close BlocListener
   }
 
   Widget _buildStatCard(
@@ -717,58 +732,38 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
 
   Widget _buildPomodoroStatCard(
       BuildContext context, PomodoroState pomodoroState) {
-    String title = 'Focus Time';
-    String value = '0m';
+    String title = 'Today\'s Points';
+    String value = '0';
 
-    // Get all-time focus time from user stats
-    final totalPomodoroSessions = _userStats?.totalPomodoroSessions ?? 0;
+    // Get today's points from user stats
+    final totalPoints = _userStats?.totalPointsToday ?? 0;
 
-    // Estimate total minutes: each session is typically 25 minutes (can be adjusted)
-    // This is an estimation since we track session count, not exact minutes
-    int estimatedMinutes = totalPomodoroSessions * 25;
+    // Check if unlimited mode (all active habits completed)
+    final habitsState = context.watch<HabitsBloc>().state;
+    bool isUnlimited = false;
+    if (habitsState is HabitsLoaded) {
+      isUnlimited = habitsState.habits.where((h) => h.isActive).every((h) =>
+          h.frequency.type == HabitFrequencyType.daily
+              ? h.isCompletedToday
+              : h.isCompletedForCurrentPeriod);
 
-    // If we have current running/paused session, add its progress
-    if (pomodoroState is PomodoroRunning) {
-      if (pomodoroState.currentSession.type == PomodoroType.work) {
-        final totalDuration =
-            Duration(minutes: pomodoroState.settings.workDurationMinutes);
-        final completedTime =
-            totalDuration - pomodoroState.currentSession.remainingTime;
-        estimatedMinutes += completedTime.inMinutes;
-      }
-    } else if (pomodoroState is PomodoroPaused) {
-      if (pomodoroState.currentSession.type == PomodoroType.work) {
-        final totalDuration =
-            Duration(minutes: pomodoroState.settings.workDurationMinutes);
-        final completedTime =
-            totalDuration - pomodoroState.currentSession.remainingTime;
-        estimatedMinutes += completedTime.inMinutes;
+      // Only show unlimited if there are active habits
+      if (habitsState.habits.where((h) => h.isActive).isEmpty) {
+        isUnlimited = false;
       }
     }
 
-    // Format the time
-    if (estimatedMinutes >= 60) {
-      final hours = estimatedMinutes ~/ 60;
-      final minutes = estimatedMinutes % 60;
-      if (minutes > 0) {
-        value = '${hours}h ${minutes}m';
-      } else {
-        value = '${hours}h';
-      }
-    } else {
-      value = '${estimatedMinutes}m';
-    }
+    value = isUnlimited ? '∞' : totalPoints.toString();
 
     return Card(
       child: InkWell(
         onTap: () {
           HapticService.buttonTap();
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => BlocProvider.value(
-                value: context.read<PomodoroBloc>(),
-                child: const PomodoroStatisticsPage(),
-              ),
+          showDialog(
+            context: context,
+            builder: (context) => BlocProvider.value(
+              value: context.read<HabitsBloc>(),
+              child: const PointsDetailDialog(),
             ),
           );
         },

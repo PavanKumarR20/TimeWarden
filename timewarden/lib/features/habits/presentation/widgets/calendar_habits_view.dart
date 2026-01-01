@@ -5,6 +5,7 @@ import '../../domain/entities/habit.dart';
 import '../bloc/habits_bloc.dart';
 import '../../../../core/widgets/animations.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/widgets/completion_success_animation.dart';
 import '../pages/habit_detail_page.dart';
 
 class CalendarHabitsView extends StatelessWidget {
@@ -453,7 +454,7 @@ class CalendarHabitsView extends StatelessWidget {
 
     // Show brief success animation for completion
     if (!isCompleted) {
-      _showCompletionSuccessAnimation(context);
+      _showCompletionSuccessAnimation(context, habit);
     }
 
     context.read<HabitsBloc>().add(
@@ -481,97 +482,20 @@ class CalendarHabitsView extends StatelessWidget {
     );
   }
 
-  void _showCompletionSuccessAnimation(BuildContext context) {
-    // Show a brief overlay animation for successful completion - slides up from bottom
+  void _showCompletionSuccessAnimation(BuildContext context, Habit habit) {
     OverlayEntry? overlayEntry;
     overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        bottom: 0,
-        left: 0,
-        right: 0,
-        child: Material(
-          color: Colors.transparent,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 1.0), // Start from bottom
-              end: const Offset(0, -0.3), // Slide up to 70% from bottom
-            ).animate(CurvedAnimation(
-              parent: AnimationController(
-                duration: const Duration(milliseconds: 800),
-                vsync: Navigator.of(context),
-              )..forward(),
-              curve: Curves.elasticOut,
-            )),
-            child: FadeTransition(
-              opacity: Tween<double>(
-                begin: 0.0,
-                end: 1.0,
-              ).animate(CurvedAnimation(
-                parent: AnimationController(
-                  duration: const Duration(milliseconds: 600),
-                  vsync: Navigator.of(context),
-                )..forward(),
-                curve: Curves.easeOut,
-              )),
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF059669).withOpacity(0.95)
-                      : const Color(0xFF10B981).withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF059669).withOpacity(0.5)
-                          : const Color(0xFF10B981).withOpacity(0.5),
-                      blurRadius: 25,
-                      spreadRadius: 5,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.celebration,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Text(
-                      'Great job! 🎉',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+      builder: (context) => Stack(
+        children: [
+          CompletionSuccessAnimation(
+            pointsValue: habit.pointsValue,
+            onComplete: () => overlayEntry?.remove(),
           ),
-        ),
+        ],
       ),
     );
 
     Overlay.of(context).insert(overlayEntry);
-
-    // Remove the overlay after animation
-    Future.delayed(const Duration(milliseconds: 2000), () {
-      overlayEntry?.remove();
-    });
   }
 
   bool _isToday(DateTime day) {

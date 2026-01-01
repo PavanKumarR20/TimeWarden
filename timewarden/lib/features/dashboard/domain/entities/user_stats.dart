@@ -11,6 +11,11 @@ class UserStats extends Equatable {
   final DateTime lastUpdated;
   final DateTime createdAt;
 
+  // Points system
+  final double totalPointsToday;
+  final DateTime lastPointsResetDate;
+  final String? pointRewardDescription;
+
   const UserStats({
     required this.userId,
     this.perfectDays = 0,
@@ -20,7 +25,10 @@ class UserStats extends Equatable {
     this.totalJournalEntries = 0,
     required this.lastUpdated,
     required this.createdAt,
-  });
+    this.totalPointsToday = 0.0,
+    DateTime? lastPointsResetDate,
+    this.pointRewardDescription,
+  }) : lastPointsResetDate = lastPointsResetDate ?? createdAt;
 
   UserStats copyWith({
     String? userId,
@@ -31,6 +39,9 @@ class UserStats extends Equatable {
     int? totalJournalEntries,
     DateTime? lastUpdated,
     DateTime? createdAt,
+    double? totalPointsToday,
+    DateTime? lastPointsResetDate,
+    String? pointRewardDescription,
   }) {
     return UserStats(
       userId: userId ?? this.userId,
@@ -42,6 +53,10 @@ class UserStats extends Equatable {
       totalJournalEntries: totalJournalEntries ?? this.totalJournalEntries,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       createdAt: createdAt ?? this.createdAt,
+      totalPointsToday: totalPointsToday ?? this.totalPointsToday,
+      lastPointsResetDate: lastPointsResetDate ?? this.lastPointsResetDate,
+      pointRewardDescription:
+          pointRewardDescription ?? this.pointRewardDescription,
     );
   }
 
@@ -56,6 +71,9 @@ class UserStats extends Equatable {
       'totalJournalEntries': totalJournalEntries,
       'lastUpdated': lastUpdated.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
+      'totalPointsToday': totalPointsToday,
+      'lastPointsResetDate': lastPointsResetDate.toIso8601String(),
+      'pointRewardDescription': pointRewardDescription,
     };
   }
 
@@ -78,6 +96,11 @@ class UserStats extends Equatable {
       totalJournalEntries: json['totalJournalEntries'] as int? ?? 0,
       lastUpdated: _parseDateTime(json['lastUpdated']),
       createdAt: _parseDateTime(json['createdAt']),
+      totalPointsToday: (json['totalPointsToday'] as num?)?.toDouble() ?? 0.0,
+      lastPointsResetDate: json['lastPointsResetDate'] != null
+          ? _parseDateTime(json['lastPointsResetDate'])
+          : _parseDateTime(json['createdAt']),
+      pointRewardDescription: json['pointRewardDescription'] as String?,
     );
   }
 
@@ -101,5 +124,8 @@ class UserStats extends Equatable {
         totalJournalEntries,
         lastUpdated,
         createdAt,
+        totalPointsToday,
+        lastPointsResetDate,
+        pointRewardDescription,
       ];
 }

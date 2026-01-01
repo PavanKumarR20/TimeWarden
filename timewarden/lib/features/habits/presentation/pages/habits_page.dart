@@ -6,6 +6,7 @@ import '../bloc/habits_bloc.dart';
 import '../widgets/calendar_habits_view.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/widgets/animations.dart';
+import '../../../../core/widgets/points_detail_dialog.dart';
 import 'add_edit_habit_page.dart';
 
 class HabitsPage extends StatefulWidget {
@@ -65,6 +66,20 @@ class _HabitsViewState extends State<HabitsView> {
       appBar: AppBar(
         title: const Text('Habits'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.stars_outlined),
+            tooltip: 'View Points',
+            onPressed: () {
+              HapticService.buttonTap();
+              showDialog(
+                context: context,
+                builder: (dialogContext) => BlocProvider.value(
+                  value: context.read<HabitsBloc>(),
+                  child: const PointsDetailDialog(),
+                ),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
