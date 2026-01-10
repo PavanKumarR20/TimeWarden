@@ -757,15 +757,19 @@ class _DashboardHomeTabState extends State<DashboardHomeTab>
 
     return Card(
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           HapticService.buttonTap();
-          showDialog(
+          await showDialog(
             context: context,
             builder: (context) => BlocProvider.value(
               value: context.read<HabitsBloc>(),
               child: const PointsDetailDialog(),
             ),
           );
+          // Reload habits to refresh points after dialog closes
+          if (context.mounted) {
+            context.read<HabitsBloc>().add(HabitsLoadRequested());
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

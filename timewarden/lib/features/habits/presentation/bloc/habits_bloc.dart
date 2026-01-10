@@ -90,11 +90,12 @@ class HabitsLoading extends HabitsState {}
 
 class HabitsLoaded extends HabitsState {
   final List<Habit> habits;
+  final double totalPointsToday;
 
-  const HabitsLoaded(this.habits);
+  const HabitsLoaded(this.habits, {this.totalPointsToday = 0.0});
 
   @override
-  List<Object> get props => [habits];
+  List<Object> get props => [habits, totalPointsToday];
 }
 
 class HabitsError extends HabitsState {
@@ -137,7 +138,15 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
       // Check and reset daily points if needed
       await _checkAndResetDailyPoints();
 
-      emit(HabitsLoaded(habits));
+      // Get current points
+      final userId = FirebaseService().currentUserId;
+      double totalPoints = 0.0;
+      if (userId != null) {
+        final userStats = await _statsRepository.getUserStats(userId);
+        totalPoints = userStats?.totalPointsToday ?? 0.0;
+      }
+
+      emit(HabitsLoaded(habits, totalPointsToday: totalPoints));
     } catch (e) {
       LogService.error('Error loading habits', tag: 'HabitsBloc', error: e);
       emit(HabitsError(e.toString()));
@@ -246,8 +255,16 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         print('   - Now completed: ${!isCompleted}');
         print('🔄 Habit updated locally, emitting new state...');
 
+        // Get current points for the emit
+        final userId = FirebaseService().currentUserId;
+        double totalPoints = 0.0;
+        if (userId != null) {
+          final userStats = await _statsRepository.getUserStats(userId);
+          totalPoints = userStats?.totalPointsToday ?? 0.0;
+        }
+
         // Emit the updated state immediately for instant UI feedback
-        emit(HabitsLoaded(updatedHabits));
+        emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
 
         // Then update the backend asynchronously
         if (isCompleted) {
@@ -508,9 +525,10 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         userStats.copyWith(totalPointsToday: newTotal),
       );
 
-      // Emit current state to trigger UI refresh
+      // Emit current state with updated points to trigger UI refresh
       if (state is HabitsLoaded) {
-        emit(HabitsLoaded((state as HabitsLoaded).habits));
+        emit(HabitsLoaded((state as HabitsLoaded).habits,
+            totalPointsToday: newTotal));
       }
 
       LogService.info('Manually adjusted points by ${event.delta}',
