@@ -66,16 +66,58 @@ class _HabitsViewState extends State<HabitsView> {
       appBar: AppBar(
         title: const Text('Habits'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.stars_outlined),
-            tooltip: 'View Points',
-            onPressed: () {
-              HapticService.buttonTap();
-              showDialog(
-                context: context,
-                builder: (dialogContext) => BlocProvider.value(
-                  value: context.read<HabitsBloc>(),
-                  child: const PointsDetailDialog(),
+          BlocBuilder<HabitsBloc, HabitsState>(
+            builder: (context, state) {
+              final points =
+                  state is HabitsLoaded ? state.totalPointsToday : 0.0;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: InkWell(
+                  onTap: () async {
+                    HapticService.buttonTap();
+                    await showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: context.read<HabitsBloc>(),
+                        child: const PointsDetailDialog(),
+                      ),
+                    );
+                    // Reload habits to refresh points after dialog closes
+                    if (context.mounted) {
+                      context.read<HabitsBloc>().add(HabitsLoadRequested());
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.stars,
+                          size: 20,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          points.toStringAsFixed(0),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onPrimaryContainer,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -90,6 +132,8 @@ class _HabitsViewState extends State<HabitsView> {
                     _hideCompletedHabits = !_hideCompletedHabits;
                   });
                   _saveHideCompletedSetting();
+                  // Reload habits from Firebase
+                  context.read<HabitsBloc>().add(HabitsLoadRequested());
                   break;
               }
             },
