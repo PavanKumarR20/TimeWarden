@@ -120,17 +120,24 @@ class _PerfectDaysManagerDialogState extends State<PerfectDaysManagerDialog> {
     });
 
     try {
-      // Create initial stats if they don't exist
+      // Get existing stats or create new ones
+      final existingStats = await _statsRepository.getUserStats(userId);
       final now = DateTime.now();
-      final stats = UserStats(
-        userId: userId,
-        perfectDays: 0,
-        lastUpdated: now,
-        createdAt: now,
-      );
-      await _statsRepository.saveUserStats(stats);
+
+      if (existingStats == null) {
+        // Only create if doesn't exist
+        final stats = UserStats(
+          userId: userId,
+          perfectDays: 0,
+          lastUpdated: now,
+          createdAt: now,
+        );
+        await _statsRepository.saveUserStats(stats);
+        _showSuccess('Initial stats created!');
+      } else {
+        _showError('Stats already exist! Use other buttons to modify.');
+      }
       await _loadUserStats();
-      _showSuccess('Initial stats created/reset!');
     } catch (e) {
       _showError('Failed to create initial stats: $e');
     } finally {
@@ -257,10 +264,6 @@ class _PerfectDaysManagerDialogState extends State<PerfectDaysManagerDialog> {
         TextButton(
           onPressed: _loadUserStats,
           child: const Text('Refresh'),
-        ),
-        TextButton(
-          onPressed: _testCreateInitialStats,
-          child: const Text('Debug Init'),
         ),
       ],
     );
