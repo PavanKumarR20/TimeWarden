@@ -106,7 +106,7 @@ class _HabitsViewState extends State<HabitsView> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          points.toStringAsFixed(0),
+                          points.toStringAsFixed(1),
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: Theme.of(context)
