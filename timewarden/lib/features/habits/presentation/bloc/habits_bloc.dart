@@ -255,15 +255,13 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         print('   - Now completed: ${!isCompleted}');
         print('🔄 Habit updated locally, emitting new state...');
 
-        // Get current points for the emit
+        // Emit the updated state immediately for instant UI feedback (with old points)
         final userId = FirebaseService().currentUserId;
         double totalPoints = 0.0;
         if (userId != null) {
           final userStats = await _statsRepository.getUserStats(userId);
           totalPoints = userStats?.totalPointsToday ?? 0.0;
         }
-
-        // Emit the updated state immediately for instant UI feedback
         emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
 
         // Then update the backend asynchronously
@@ -279,6 +277,14 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
 
         LogService.debug('Habit completion toggled successfully in backend',
             tag: 'HabitsBloc');
+
+        // Re-fetch points after backend update and emit again for accurate points
+        if (userId != null) {
+          final updatedUserStats = await _statsRepository.getUserStats(userId);
+          totalPoints = updatedUserStats?.totalPointsToday ?? 0.0;
+          emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
+          print('✅ Points updated in UI: $totalPoints');
+        }
 
         print(
             '🔍 Backend updated successfully, now checking for perfect day...');
