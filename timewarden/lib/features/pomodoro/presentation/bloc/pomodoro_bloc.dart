@@ -23,6 +23,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   final List<PomodoroSession> _sessions = [];
   int _completedWorkSessions = 0;
   bool _hasBeenInitialized = false;
+  PomodoroType? _lastCompletedSessionType;
 
   // Simple audio player - just like Timer page
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -245,6 +246,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
       ));
+
+      // Show initial progress notification
+      await _updateProgressNotification();
+
       LogService.debug(
           'PomodoroBloc: Successfully emitted PomodoroRunning state');
 
@@ -286,8 +291,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         isLongBreakNext: _isLongBreakNext(),
       ));
 
-      // Disable notifications to keep it simple
-      // await _updateNotification();
+      // Update notification to show paused state
+      await _updateProgressNotification();
 
       LogService.debug('PomodoroBloc: Timer paused successfully');
     }
@@ -361,7 +366,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     HapticService.buttonTap();
 
-    // Cancel scheduled notification
+    // Cancel all notifications when stopping
+    await _notificationService.cancelPomodoroNotification();
     await _notificationService.cancelScheduledSessionNotification();
 
     // Stop the main timer
@@ -436,8 +442,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
           isLongBreakNext: _isLongBreakNext(),
         ));
 
-        // Disable notification updates to avoid conflicts
-        // await _updateNotification();
+        // Update notification with current progress
+        await _updateProgressNotification();
       }
     }
   }
@@ -448,8 +454,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     _mainTimer?.cancel();
 
-    // Cancel the scheduled notification since we're handling completion now
+    // Cancel all notifications since we're handling completion now
     await _notificationService.cancelScheduledSessionNotification();
+    await _notificationService.cancelPomodoroNotification();
 
     if (_currentSession != null) {
       print(
@@ -496,6 +503,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         LogService.debug('PomodoroBloc: Error saving session to Firestore: $e');
         // Don't emit error here, just log it - session is still tracked locally
       }
+
+      // Track the type of session that just completed
+      _lastCompletedSessionType = _currentSession!.type;
 
       if (_currentSession!.type == PomodoroType.work) {
         _completedWorkSessions++;
@@ -626,7 +636,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       await _saveState();
 
       // Update notification for new work session
-      await _updateNotification();
+      await _updateProgressNotification();
       print(
           'PomodoroBloc: Skip break completed successfully - now running ${nextSession.durationMinutes}min work session');
     } catch (e, stackTrace) {
@@ -731,15 +741,17 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   }
 
   PomodoroType _getNextSessionType() {
-    // Since we removed persistence, always start with work
-    // Simple logic: work sessions get breaks, breaks get work
-    if (_completedWorkSessions > 0 &&
-        _completedWorkSessions % _settings.sessionsUntilLongBreak == 0) {
-      return PomodoroType.longBreak;
+    // If the last session was a work session, return a break
+    if (_lastCompletedSessionType == PomodoroType.work) {
+      // Determine if it should be a long break or short break
+      if (_completedWorkSessions > 0 &&
+          _completedWorkSessions % _settings.sessionsUntilLongBreak == 0) {
+        return PomodoroType.longBreak;
+      }
+      return PomodoroType.shortBreak;
     }
 
-    // For now, since we have no persistence, always start with work
-    // Could be enhanced later with simple alternating logic
+    // If the last session was a break (or no previous session), return work
     return PomodoroType.work;
   }
 
@@ -759,9 +771,29 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         _completedWorkSessions % _settings.sessionsUntilLongBreak == 0;
   }
 
-  // Notifications disabled - simplified implementation
-  Future<void> _updateNotification() async {
-    // Disabled
+  // Update progress notification with current session state
+  Future<void> _updateProgressNotification() async {
+    if (_currentSession == null) return;
+
+    try {
+      final sessionTypeName = _currentSession!.displayType;
+      final remainingDuration = _currentSession!.remainingTime;
+      final isPaused = _currentSession!.status == SessionStatus.paused;
+
+      await _notificationService.showPomodoroRunningNotification(
+        sessionType: sessionTypeName,
+        remainingMinutes: remainingDuration.inMinutes,
+        remainingSeconds: remainingDuration.inSeconds % 60,
+        isPaused: isPaused,
+        totalMinutes: _currentSession!.durationMinutes,
+        completedSessions: _completedWorkSessions,
+        totalSessions: _settings.sessionsUntilLongBreak,
+      );
+    } catch (e) {
+      LogService.debug(
+          'PomodoroBloc: Error updating progress notification: $e');
+      // Don't throw - notifications are optional
+    }
   }
 
   // Sync timer - no background service anymore
@@ -841,6 +873,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
       // Provide haptic feedback for reset action
       HapticService.buttonTap();
+
+      // Cancel all notifications
+      await _notificationService.cancelPomodoroNotification();
+      await _notificationService.cancelScheduledSessionNotification();
 
       // Stop any running timer
       _mainTimer?.cancel();
