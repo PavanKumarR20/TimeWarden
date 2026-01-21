@@ -55,6 +55,10 @@ dependencies:
   flutter_local_notifications: ^19.4.1
   permission_handler: ^12.0.1
   timezone: ^0.10.0
+  flutter_timezone: ^5.0.1
+  
+  # Alarm for Pomodoro timer
+  alarm: ^5.1.5
 
   # Security and authentication
   local_auth: ^2.3.0

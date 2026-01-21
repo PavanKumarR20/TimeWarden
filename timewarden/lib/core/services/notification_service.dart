@@ -97,8 +97,21 @@ class NotificationService {
       // Request standard notification permission
       await Permission.notification.request();
 
-      // Request schedule exact alarm permission for Android 12+ (needed for precise timer notifications)
-      await Permission.scheduleExactAlarm.request();
+      // For SCHEDULE_EXACT_ALARM on Android 12+, we need to use Android's
+      // AlarmManager.canScheduleExactAlarms() and open settings manually
+      // The permission_handler package can check status but can't request it
+      // Users must manually enable "Alarms & reminders" in app settings
+      final alarmPermission = await Permission.scheduleExactAlarm.status;
+      debugPrint(
+          'NotificationService: Exact alarm permission status: $alarmPermission');
+
+      if (!alarmPermission.isGranted) {
+        debugPrint('NotificationService: Exact alarm permission not granted.');
+        debugPrint(
+            'NotificationService: Users must enable "Alarms & reminders" in Settings > Apps > Time Warden');
+        // Note: On Android 12+, user must manually enable this in settings
+        // The app will still work but scheduled notifications may not fire precisely
+      }
 
       debugPrint('NotificationService: Android permissions requested');
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {

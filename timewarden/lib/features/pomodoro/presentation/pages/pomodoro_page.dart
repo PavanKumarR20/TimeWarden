@@ -386,7 +386,7 @@ class _PomodoroPageState extends State<PomodoroPage>
         // Main Action Button
         FloatingActionButton.large(
           heroTag: 'main',
-          onPressed: () {
+          onPressed: () async {
             if (isRunning) {
               context.read<PomodoroBloc>().add(const PomodoroPauseRequested());
             } else if (isPaused) {
@@ -428,34 +428,27 @@ class _PomodoroPageState extends State<PomodoroPage>
             child: Icon(
               wasWork ? Icons.celebration : Icons.self_improvement,
               size: 80,
-              color: _getSessionColor(state.completedSession.type),
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 30),
-          FadeInAnimation(
-            delay: const Duration(milliseconds: 200),
-            child: Text(
-              wasWork ? 'Great Work!' : 'Break Complete!',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: _getSessionColor(state.completedSession.type),
-                  ),
-            ),
+          const SizedBox(height: 32),
+          Text(
+            wasWork ? 'Focus Complete!' : 'Break Complete!',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
-          FadeInAnimation(
-            delay: const Duration(milliseconds: 300),
-            child: Text(
-              wasWork
-                  ? 'You completed a ${state.completedSession.durationMinutes}-minute focus session!'
-                  : 'Time to get back to work!',
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
+          Text(
+            wasWork
+                ? 'Great work! Time for a break.'
+                : 'Break over! Ready for another session?',
+            style: Theme.of(context).textTheme.bodyLarge,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 40),
           SlideInAnimation(
-            delay: const Duration(milliseconds: 400),
+            delay: const Duration(milliseconds: 200),
             begin: const Offset(0, 1),
             child: Column(
               children: [
@@ -510,6 +503,12 @@ class _PomodoroPageState extends State<PomodoroPage>
       totalSessions = state.settings.sessionsUntilLongBreak;
       currentSession = completedSessions + 1;
       isWorkSession = state.currentSession.type == PomodoroType.work;
+    } else if (state is PomodoroSessionCompleted) {
+      completedSessions =
+          state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
+      totalSessions = state.settings.sessionsUntilLongBreak;
+      currentSession = completedSessions + 1;
+      isWorkSession = state.nextSessionType == PomodoroType.work;
     }
 
     return Container(
