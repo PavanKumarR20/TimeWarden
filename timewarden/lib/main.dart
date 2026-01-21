@@ -6,11 +6,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'firebase_options_secure.dart';
 import 'core/services/log_service.dart';
 import 'core/services/theme_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/alarm_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/pages/auth_wrapper.dart';
@@ -57,12 +58,16 @@ void main() async {
 
   // Initialize timezone database for scheduled notifications
   tz.initializeTimeZones();
-  // Optionally set local timezone (you can get this from flutter_native_timezone package)
-  // For now, use UTC as default
-  tz.setLocalLocation(tz.getLocation('UTC'));
+  // Get device's local timezone (IANA name like "Asia/Kolkata")
+  final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+  tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
+  debugPrint('Timezone set to: ${timezoneInfo.identifier}');
 
   // Initialize notification service
   await NotificationService().initialize();
+
+  // Initialize alarm service for Pomodoro timer
+  await AlarmService.initialize();
 
   runApp(const TimeWardenApp());
 }

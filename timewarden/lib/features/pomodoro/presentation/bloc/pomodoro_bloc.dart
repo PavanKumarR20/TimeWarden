@@ -13,6 +13,7 @@ import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/log_service.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/alarm_service.dart';
 import 'pomodoro_event.dart';
 import 'pomodoro_state.dart';
 
@@ -31,6 +32,7 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   final PomodoroRepository _repository;
   late final UserStatsRepositoryImpl _statsRepository;
   final NotificationService _notificationService = NotificationService();
+  final AlarmService _alarmService = AlarmService();
 
   PomodoroBloc(this._repository) : super(const PomodoroInitial()) {
     _statsRepository = UserStatsRepositoryImpl(FirebaseService());
@@ -220,13 +222,11 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
               ? 'Long Break'
               : 'Break';
 
-      print(
-          'PomodoroBloc: Scheduling completion notification for $completionTime');
-      await _notificationService.scheduleSessionCompletionNotification(
-        scheduledTime: completionTime,
+      print('PomodoroBloc: Scheduling completion alarm for $completionTime');
+      await _alarmService.scheduleSessionCompletion(
+        completionTime: completionTime,
         sessionType: sessionTypeName,
-        message: 'Your session has ended',
-        nextSessionType: null,
+        message: 'Your $sessionTypeName session has ended',
       );
 
       LogService.debug('PomodoroBloc: Local timer started successfully');
@@ -276,6 +276,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Pause the main timer
       _mainTimer?.cancel();
       LogService.debug('PomodoroBloc: Main timer paused');
+
+      // Cancel any scheduled alarm
+      await _alarmService.cancelSessionAlarm();
+      LogService.debug('PomodoroBloc: Cancelled alarm for pause');
 
       // Update session status locally
       _currentSession = _currentSession!.copyWith(
@@ -335,11 +339,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
               ? 'Long Break'
               : 'Break';
 
-      await _notificationService.scheduleSessionCompletionNotification(
-        scheduledTime: completionTime,
+      await _alarmService.scheduleSessionCompletion(
+        completionTime: completionTime,
         sessionType: sessionTypeName,
-        message: 'Your session has ended',
-        nextSessionType: null,
+        message: 'Your $sessionTypeName session has ended',
       );
 
       // Emit running state immediately
@@ -366,7 +369,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     HapticService.buttonTap();
 
-    // Cancel all notifications when stopping
+    // Cancel alarm and notifications when stopping
+    await _alarmService.cancelSessionAlarm();
     await _notificationService.cancelPomodoroNotification();
     await _notificationService.cancelScheduledSessionNotification();
 
@@ -454,7 +458,8 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   ) async {
     _mainTimer?.cancel();
 
-    // Cancel all notifications since we're handling completion now
+    // Don't cancel alarm here - let it play the full sound
+    // Only cancel old notifications for backwards compatibility
     await _notificationService.cancelScheduledSessionNotification();
     await _notificationService.cancelPomodoroNotification();
 
@@ -577,6 +582,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       _mainTimer?.cancel();
       LogService.debug('PomodoroBloc: Cancelled timer for skip break');
 
+      // Cancel any scheduled alarm for the break being skipped
+      await _alarmService.cancelSessionAlarm();
+      LogService.debug('PomodoroBloc: Cancelled alarm for skipped break');
+
       // Mark current break as completed and add to sessions
       final completedBreak = currentSession.copyWith(
         status: SessionStatus.completed,
@@ -615,6 +624,17 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       _currentSession = nextSession;
       print(
           'PomodoroBloc: Created new work session (ID: $sessionId, Duration: ${_settings.workDurationMinutes}min)');
+
+      // Schedule alarm for new work session
+      final completionTime = nextSession.startTime.add(
+        Duration(minutes: nextSession.durationMinutes),
+      );
+      final sessionTypeName = nextSession.type.name;
+      await _alarmService.scheduleSessionCompletion(
+        completionTime: completionTime,
+        sessionType: sessionTypeName,
+        message: 'Your $sessionTypeName session has ended',
+      );
 
       // Start local timer for new work session
       _startMainTimer();
@@ -877,6 +897,10 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
       // Cancel all notifications
       await _notificationService.cancelPomodoroNotification();
       await _notificationService.cancelScheduledSessionNotification();
+
+      // Cancel any scheduled alarm
+      await _alarmService.cancelSessionAlarm();
+      LogService.debug('PomodoroBloc: Cancelled alarm');
 
       // Stop any running timer
       _mainTimer?.cancel();
