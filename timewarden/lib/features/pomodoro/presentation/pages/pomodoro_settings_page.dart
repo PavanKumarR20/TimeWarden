@@ -16,7 +16,6 @@ class PomodoroSettingsPage extends StatefulWidget {
 
 class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
   late PomodoroSettings _settings;
-  bool _hasChanges = false;
 
   @override
   void initState() {
@@ -38,13 +37,6 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pomodoro Settings'),
-        actions: [
-          if (_hasChanges)
-            TextButton(
-              onPressed: _saveSettings,
-              child: const Text('Save'),
-            ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -223,23 +215,9 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
   void _updateSettings(PomodoroSettings newSettings) {
     setState(() {
       _settings = newSettings;
-      _hasChanges = true;
     });
-  }
 
-  void _saveSettings() {
-    HapticService.successAction();
     context.read<PomodoroBloc>().add(PomodoroSettingsUpdated(_settings));
-    setState(() {
-      _hasChanges = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Settings saved successfully!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _resetToDefaults() {
@@ -260,8 +238,10 @@ class _PomodoroSettingsPageState extends State<PomodoroSettingsPage> {
               Navigator.of(context).pop();
               setState(() {
                 _settings = const PomodoroSettings();
-                _hasChanges = true;
               });
+              context
+                  .read<PomodoroBloc>()
+                  .add(PomodoroSettingsUpdated(_settings));
             },
             child: const Text('Reset'),
           ),

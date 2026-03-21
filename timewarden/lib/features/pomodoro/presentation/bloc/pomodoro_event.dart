@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/pomodoro_settings.dart';
 
 abstract class PomodoroEvent extends Equatable {
   const PomodoroEvent();
@@ -47,7 +48,7 @@ class PomodoroTick extends PomodoroEvent {
 }
 
 class PomodoroSettingsUpdated extends PomodoroEvent {
-  final dynamic settings; // PomodoroSettings
+  final PomodoroSettings settings;
 
   const PomodoroSettingsUpdated(this.settings);
 

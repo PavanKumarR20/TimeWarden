@@ -8,6 +8,8 @@ import '../../domain/entities/pomodoro_session.dart';
 import '../../domain/entities/pomodoro_settings.dart';
 import '../../domain/entities/pomodoro_statistics.dart';
 import '../../domain/repositories/pomodoro_repository.dart';
+import '../../domain/usecases/get_pomodoro_settings.dart';
+import '../../domain/usecases/save_pomodoro_settings.dart';
 import '../../../dashboard/data/repositories/user_stats_repository_impl.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/log_service.dart';
@@ -30,11 +32,17 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   final PomodoroRepository _repository;
+  final GetPomodoroSettings _getPomodoroSettings;
+  final SavePomodoroSettings _savePomodoroSettings;
   late final UserStatsRepositoryImpl _statsRepository;
   final NotificationService _notificationService = NotificationService();
   final AlarmService _alarmService = AlarmService();
 
-  PomodoroBloc(this._repository) : super(const PomodoroInitial()) {
+  PomodoroBloc(
+    this._repository,
+    this._getPomodoroSettings,
+    this._savePomodoroSettings,
+  ) : super(const PomodoroInitial()) {
     _statsRepository = UserStatsRepositoryImpl(FirebaseService());
     on<PomodoroLoadRequested>(_onLoadRequested);
     on<PomodoroStartRequested>(_onStartRequested);
@@ -62,10 +70,23 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
   // Persistence methods
   Future<void> _saveState() async {
-    // No persistence - removed to keep simple Pomodoro functionality
+    try {
+      await _savePomodoroSettings(_settings);
+    } catch (e) {
+      LogService.debug('PomodoroBloc: Error saving Pomodoro settings: $e');
+    }
   }
 
   Future<void> _loadState() async {
+    try {
+      _settings = await _getPomodoroSettings();
+    } catch (e) {
+      LogService.debug(
+        'PomodoroBloc: Error loading Pomodoro settings, using defaults: $e',
+      );
+      _settings = const PomodoroSettings();
+    }
+
     // Load sessions from Firestore
     try {
       final sessions = await _repository.getSessions();
@@ -670,7 +691,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     PomodoroSettingsUpdated event,
     Emitter<PomodoroState> emit,
   ) async {
-    _settings = event.settings as PomodoroSettings;
+    _settings = event.settings;
+
+    await _saveState();
 
     // Settings updated - no audio service needed
 
@@ -679,6 +702,57 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
         settings: _settings,
         completedWorkSessions: _completedWorkSessions,
         isLongBreakNext: _isLongBreakNext(),
+      ));
+      return;
+    }
+
+    if (state is PomodoroRunning) {
+      final currentState = state as PomodoroRunning;
+      emit(PomodoroRunning(
+        currentSession: currentState.currentSession,
+        settings: _settings,
+        completedWorkSessions: currentState.completedWorkSessions,
+        isLongBreakNext: currentState.isLongBreakNext,
+        todayStats: currentState.todayStats,
+        weeklyStats: currentState.weeklyStats,
+        sessions: currentState.sessions,
+      ));
+      return;
+    }
+
+    if (state is PomodoroPaused) {
+      final currentState = state as PomodoroPaused;
+      emit(PomodoroPaused(
+        currentSession: currentState.currentSession,
+        settings: _settings,
+        completedWorkSessions: currentState.completedWorkSessions,
+        isLongBreakNext: currentState.isLongBreakNext,
+        todayStats: currentState.todayStats,
+        weeklyStats: currentState.weeklyStats,
+        sessions: currentState.sessions,
+      ));
+      return;
+    }
+
+    if (state is PomodoroSessionCompleted) {
+      final currentState = state as PomodoroSessionCompleted;
+      emit(PomodoroSessionCompleted(
+        completedSession: currentState.completedSession,
+        settings: _settings,
+        completedWorkSessions: currentState.completedWorkSessions,
+        isLongBreakNext: currentState.isLongBreakNext,
+        nextSessionType: currentState.nextSessionType,
+      ));
+      return;
+    }
+
+    if (state is PomodoroHistoryLoaded) {
+      final currentState = state as PomodoroHistoryLoaded;
+      emit(PomodoroHistoryLoaded(
+        sessions: currentState.sessions,
+        todayStats: currentState.todayStats,
+        weeklyStats: currentState.weeklyStats,
+        settings: _settings,
       ));
     }
   }

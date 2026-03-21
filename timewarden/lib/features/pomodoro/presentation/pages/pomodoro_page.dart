@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/pomodoro_session.dart';
+import '../../domain/entities/pomodoro_settings.dart';
 import '../../../../core/services/haptic_service.dart';
 import '../../../../core/widgets/animations.dart';
 import '../bloc/pomodoro_bloc.dart';
@@ -163,44 +164,25 @@ class _PomodoroPageState extends State<PomodoroPage>
         children: [
           const SizedBox(height: 20),
 
-          // Session Type Indicator
-          if (currentSession != null) ...[
-            FadeInAnimation(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _getSessionColor(currentSession.type).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _getSessionColor(currentSession.type),
-                    width: 2,
-                  ),
-                ),
-                child: Text(
-                  currentSession.displayType,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _getSessionColor(currentSession.type),
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
+          // Session Status Header - Always visible
+          FadeInAnimation(
+            child: _buildSessionStatusHeader(context, state, currentSession),
+          ),
+          const SizedBox(height: 12),
 
-            // Cycle Indicator
-            FadeInAnimation(
-              delay: const Duration(milliseconds: 100),
-              child: _buildCycleIndicator(context, state),
-            ),
-            const SizedBox(height: 30),
-          ],
+          // Cycle Indicator - Always visible
+          FadeInAnimation(
+            delay: const Duration(milliseconds: 100),
+            child: _buildCycleIndicator(context, state),
+          ),
+          const SizedBox(height: 30),
 
           // Timer Circle
           Expanded(
             child: Center(
               child: SlideInAnimation(
-                child: _buildTimerCircle(context, currentSession, isRunning),
+                child: _buildTimerCircle(
+                    context, state, currentSession, isRunning),
               ),
             ),
           ),
@@ -238,13 +220,21 @@ class _PomodoroPageState extends State<PomodoroPage>
 
   Widget _buildTimerCircle(
     BuildContext context,
+    PomodoroState state,
     PomodoroSession? session,
     bool isRunning,
   ) {
     final size = MediaQuery.of(context).size.width * 0.7;
     final progress = session?.progressPercentage ?? 0.0;
-    final timeText =
-        session != null ? _formatTime(session.remainingTime) : '25:00';
+
+    // Get default time based on session type and settings
+    String timeText;
+    if (session != null) {
+      timeText = _formatTime(session.remainingTime);
+    } else {
+      // When no active session, show the duration for the next session type
+      timeText = _getDefaultTimeForState(state);
+    }
 
     return Container(
       width: size,
@@ -484,31 +474,45 @@ class _PomodoroPageState extends State<PomodoroPage>
     int completedSessions = 0;
     int totalSessions = 4;
     int currentSession = 1;
-    bool isWorkSession = true;
+    PomodoroType? currentType;
 
     if (state is PomodoroReady) {
       completedSessions =
           state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
       totalSessions = state.settings.sessionsUntilLongBreak;
       currentSession = completedSessions + 1;
+      currentType =
+          state.isLongBreakNext ? PomodoroType.longBreak : PomodoroType.work;
     } else if (state is PomodoroRunning) {
       completedSessions =
           state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
       totalSessions = state.settings.sessionsUntilLongBreak;
       currentSession = completedSessions + 1;
-      isWorkSession = state.currentSession.type == PomodoroType.work;
+      currentType = state.currentSession.type;
     } else if (state is PomodoroPaused) {
       completedSessions =
           state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
       totalSessions = state.settings.sessionsUntilLongBreak;
       currentSession = completedSessions + 1;
-      isWorkSession = state.currentSession.type == PomodoroType.work;
+      currentType = state.currentSession.type;
     } else if (state is PomodoroSessionCompleted) {
       completedSessions =
           state.completedWorkSessions % state.settings.sessionsUntilLongBreak;
       totalSessions = state.settings.sessionsUntilLongBreak;
       currentSession = completedSessions + 1;
-      isWorkSession = state.nextSessionType == PomodoroType.work;
+      currentType = state.nextSessionType;
+    }
+
+    // Determine session status text
+    String statusText;
+    if (currentType == PomodoroType.work) {
+      statusText = 'Session $currentSession of $totalSessions';
+    } else if (currentType == PomodoroType.shortBreak) {
+      statusText = 'Short Break';
+    } else if (currentType == PomodoroType.longBreak) {
+      statusText = 'Long Break';
+    } else {
+      statusText = 'Session $currentSession of $totalSessions';
     }
 
     return Container(
@@ -526,20 +530,18 @@ class _PomodoroPageState extends State<PomodoroPage>
         children: [
           // Cycle text
           Text(
-            isWorkSession
-                ? 'Session $currentSession of $totalSessions'
-                : 'Break Time',
+            statusText,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
           ),
           const SizedBox(width: 8),
-          // Visual indicators
+          // Visual indicators - show dots for work sessions
           ...List.generate(totalSessions, (index) {
             final isCompleted = index < completedSessions;
-            final isCurrent = index == completedSessions &&
-                (state is PomodoroRunning || state is PomodoroPaused);
+            final isCurrent =
+                index == completedSessions && currentType == PomodoroType.work;
 
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 2),
@@ -558,6 +560,94 @@ class _PomodoroPageState extends State<PomodoroPage>
         ],
       ),
     );
+  }
+
+  Widget _buildSessionStatusHeader(
+    BuildContext context,
+    PomodoroState state,
+    PomodoroSession? currentSession,
+  ) {
+    // Determine current session type
+    PomodoroType sessionType = PomodoroType.work;
+    String displayText = 'Focus Session';
+    bool isActive = false;
+
+    if (state is PomodoroReady) {
+      sessionType =
+          state.isLongBreakNext ? PomodoroType.longBreak : PomodoroType.work;
+      displayText =
+          state.isLongBreakNext ? 'Ready for Long Break' : 'Ready for Focus';
+    } else if (currentSession != null) {
+      sessionType = currentSession.type;
+      displayText = currentSession.displayType;
+      isActive = true;
+    } else if (state is PomodoroSessionCompleted) {
+      sessionType = state.nextSessionType;
+      displayText = _getDisplayTypeForSessionType(state.nextSessionType);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _getSessionColor(sessionType).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _getSessionColor(sessionType),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _getSessionIcon(sessionType),
+            color: _getSessionColor(sessionType),
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            displayText,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: _getSessionColor(sessionType),
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          if (isActive) ...[
+            const SizedBox(width: 8),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _getSessionColor(sessionType),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _getDisplayTypeForSessionType(PomodoroType type) {
+    switch (type) {
+      case PomodoroType.work:
+        return 'Focus Session';
+      case PomodoroType.shortBreak:
+        return 'Short Break';
+      case PomodoroType.longBreak:
+        return 'Long Break';
+    }
+  }
+
+  IconData _getSessionIcon(PomodoroType type) {
+    switch (type) {
+      case PomodoroType.work:
+        return Icons.work_outline;
+      case PomodoroType.shortBreak:
+        return Icons.coffee_outlined;
+      case PomodoroType.longBreak:
+        return Icons.beach_access_outlined;
+    }
   }
 
   void _showResetConfirmationDialog(BuildContext context) {
@@ -645,6 +735,44 @@ class _PomodoroPageState extends State<PomodoroPage>
     final minutes = duration.inMinutes;
     final seconds = duration.inSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _getDefaultTimeForState(PomodoroState state) {
+    PomodoroSettings? settings;
+    PomodoroType nextType = PomodoroType.work;
+
+    if (state is PomodoroReady) {
+      settings = state.settings;
+      nextType =
+          state.isLongBreakNext ? PomodoroType.longBreak : PomodoroType.work;
+    } else if (state is PomodoroRunning) {
+      settings = state.settings;
+      nextType = PomodoroType.work; // default
+    } else if (state is PomodoroPaused) {
+      settings = state.settings;
+      nextType = PomodoroType.work; // default
+    } else if (state is PomodoroSessionCompleted) {
+      settings = state.settings;
+      nextType = state.nextSessionType;
+    }
+
+    // Get duration based on session type
+    int minutes = 25; // default
+    if (settings != null) {
+      switch (nextType) {
+        case PomodoroType.work:
+          minutes = settings.workDurationMinutes;
+          break;
+        case PomodoroType.shortBreak:
+          minutes = settings.shortBreakMinutes;
+          break;
+        case PomodoroType.longBreak:
+          minutes = settings.longBreakMinutes;
+          break;
+      }
+    }
+
+    return _formatTime(Duration(minutes: minutes));
   }
 
   void _showBreakPromptDialog(
