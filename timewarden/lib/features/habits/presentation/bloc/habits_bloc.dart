@@ -135,15 +135,23 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
       LogService.debug('Loaded ${habits.length} habits successfully',
           tag: 'HabitsBloc');
 
-      // Check and reset daily points if needed
-      await _checkAndResetDailyPoints();
-
-      // Get current points
-      final userId = FirebaseService().currentUserId;
-      double totalPoints = 0.0;
-      if (userId != null) {
-        final userStats = await _statsRepository.getUserStats(userId);
-        totalPoints = userStats?.totalPointsToday ?? 0.0;
+      // Keep habits functional even when stats backend/Firebase is unavailable.
+      final previousPoints = state is HabitsLoaded
+          ? (state as HabitsLoaded).totalPointsToday
+          : 0.0;
+      double totalPoints = previousPoints;
+      try {
+        await _checkAndResetDailyPoints();
+        final userId = FirebaseService().currentUserId;
+        if (userId != null) {
+          final userStats = await _statsRepository.getUserStats(userId);
+          totalPoints = userStats?.totalPointsToday ?? 0.0;
+        }
+      } catch (e) {
+        LogService.debug(
+          'HabitsBloc: Continuing without points/stats during load: $e',
+          tag: 'HabitsBloc',
+        );
       }
 
       emit(HabitsLoaded(habits, totalPointsToday: totalPoints));
@@ -255,13 +263,33 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
         print('   - Now completed: ${!isCompleted}');
         print('🔄 Habit updated locally, emitting new state...');
 
-        // Emit the updated state immediately for instant UI feedback (with old points)
-        final userId = FirebaseService().currentUserId;
-        double totalPoints = 0.0;
-        if (userId != null) {
-          final userStats = await _statsRepository.getUserStats(userId);
-          totalPoints = userStats?.totalPointsToday ?? 0.0;
+        // Emit updated state immediately with optimistic points to avoid flicker.
+        double totalPoints = currentState.totalPointsToday;
+        String? userId;
+        try {
+          userId = FirebaseService().currentUserId;
+          if (userId != null) {
+            final userStats = await _statsRepository.getUserStats(userId);
+            totalPoints = userStats?.totalPointsToday ?? 0.0;
+          }
+        } catch (e) {
+          LogService.debug(
+            'HabitsBloc: Continuing toggle without stats fetch: $e',
+            tag: 'HabitsBloc',
+          );
         }
+
+        final pointsValue = habit.pointsValue ?? 0.0;
+        if (pointsValue > 0) {
+          if (isCompleted) {
+            totalPoints = (totalPoints - pointsValue)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+          } else {
+            totalPoints += pointsValue;
+          }
+        }
+
         emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
 
         // Then update the backend asynchronously
@@ -280,10 +308,18 @@ class HabitsBloc extends Bloc<HabitsEvent, HabitsState> {
 
         // Re-fetch points after backend update and emit again for accurate points
         if (userId != null) {
-          final updatedUserStats = await _statsRepository.getUserStats(userId);
-          totalPoints = updatedUserStats?.totalPointsToday ?? 0.0;
-          emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
-          print('✅ Points updated in UI: $totalPoints');
+          try {
+            final updatedUserStats =
+                await _statsRepository.getUserStats(userId);
+            totalPoints = updatedUserStats?.totalPointsToday ?? 0.0;
+            emit(HabitsLoaded(updatedHabits, totalPointsToday: totalPoints));
+            print('✅ Points updated in UI: $totalPoints');
+          } catch (e) {
+            LogService.debug(
+              'HabitsBloc: Skipping points refresh after toggle: $e',
+              tag: 'HabitsBloc',
+            );
+          }
         }
 
         print(

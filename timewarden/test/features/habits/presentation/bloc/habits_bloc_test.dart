@@ -1,7 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:timewarden/features/habits/domain/entities/habit.dart';
 import 'package:timewarden/features/habits/presentation/bloc/habits_bloc.dart';
 
 import '../../../../helpers/mock_repositories.dart';
@@ -9,6 +8,10 @@ import '../../../../helpers/mock_repositories.dart';
 void main() {
   late MockHabitRepository mockRepository;
   late HabitsBloc bloc;
+
+  setUpAll(() {
+    registerFallbackValue(TestHabits.testHabit1);
+  });
 
   setUp(() {
     mockRepository = MockHabitRepository();
@@ -186,9 +189,6 @@ void main() {
         build: () {
           when(() => mockRepository.markHabitIncomplete(any(), any()))
               .thenAnswer((_) async => {});
-          final completedHabit = habit.copyWith(
-            completedDates: [DateTime(today.year, today.month, today.day)],
-          );
           return bloc;
         },
         seed: () => HabitsLoaded([

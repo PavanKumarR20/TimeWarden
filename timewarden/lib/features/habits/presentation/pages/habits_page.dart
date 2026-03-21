@@ -5,6 +5,7 @@ import '../../domain/entities/habit.dart';
 import '../bloc/habits_bloc.dart';
 import '../widgets/calendar_habits_view.dart';
 import '../../../../core/services/haptic_service.dart';
+import '../../../../core/services/points_service.dart';
 import '../../../../core/widgets/animations.dart';
 import '../../../../core/widgets/points_detail_dialog.dart';
 import 'add_edit_habit_page.dart';
@@ -68,8 +69,14 @@ class _HabitsViewState extends State<HabitsView> {
         actions: [
           BlocBuilder<HabitsBloc, HabitsState>(
             builder: (context, state) {
+              final habits = state is HabitsLoaded ? state.habits : <Habit>[];
               final points =
                   state is HabitsLoaded ? state.totalPointsToday : 0.0;
+              final isUnlimited = PointsService.isUnlimitedMode(habits: habits);
+              final pointsDisplay = PointsService.getPointsDisplayText(
+                points: points,
+                isUnlimited: isUnlimited,
+              );
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
                 child: InkWell(
@@ -106,7 +113,7 @@ class _HabitsViewState extends State<HabitsView> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          points.toStringAsFixed(1),
+                          pointsDisplay,
                           style:
                               Theme.of(context).textTheme.titleMedium?.copyWith(
                                     color: Theme.of(context)

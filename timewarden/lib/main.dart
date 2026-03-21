@@ -18,6 +18,9 @@ import 'features/auth/presentation/pages/auth_wrapper.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/pomodoro/presentation/bloc/pomodoro_bloc.dart';
 import 'features/pomodoro/data/repositories/pomodoro_repository_impl.dart';
+import 'features/pomodoro/data/repositories/pomodoro_settings_repository_impl.dart';
+import 'features/pomodoro/domain/usecases/get_pomodoro_settings.dart';
+import 'features/pomodoro/domain/usecases/save_pomodoro_settings.dart';
 import 'features/habits/presentation/bloc/habits_bloc.dart';
 import 'features/habits/data/repositories/habit_repository_impl.dart';
 import 'features/journal/presentation/bloc/journal_bloc.dart';
@@ -88,9 +91,14 @@ class TimeWardenApp extends StatelessWidget {
                     AuthBloc(AuthRepositoryImpl(FirebaseService())),
               ),
               BlocProvider(
-                create: (context) => PomodoroBloc(
-                  PomodoroRepositoryImpl(FirebaseService()),
-                ),
+                create: (context) {
+                  final settingsRepository = PomodoroSettingsRepositoryImpl();
+                  return PomodoroBloc(
+                    PomodoroRepositoryImpl(FirebaseService()),
+                    GetPomodoroSettings(settingsRepository),
+                    SavePomodoroSettings(settingsRepository),
+                  );
+                },
               ),
               BlocProvider(
                 create: (context) => HabitsBloc(
