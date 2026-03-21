@@ -562,6 +562,15 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
     PomodoroNextSessionRequested event,
     Emitter<PomodoroState> emit,
   ) async {
+    // If the user is skipping a break (navigating away after a work session
+    // completed), update _lastCompletedSessionType so _getNextSessionType()
+    // correctly returns work on the next start press.
+    if (state is PomodoroSessionCompleted &&
+        (state as PomodoroSessionCompleted).completedSession.type ==
+            PomodoroType.work) {
+      _lastCompletedSessionType =
+          (state as PomodoroSessionCompleted).nextSessionType;
+    }
     emit(PomodoroReady(
       settings: _settings,
       completedWorkSessions: _completedWorkSessions,
@@ -861,6 +870,12 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
   }
 
   bool _isLongBreakNext() {
+    // If the last completed session was a break, we're heading into work next,
+    // so a long break is NOT next regardless of the session count.
+    if (_lastCompletedSessionType == PomodoroType.shortBreak ||
+        _lastCompletedSessionType == PomodoroType.longBreak) {
+      return false;
+    }
     return _completedWorkSessions > 0 &&
         _completedWorkSessions % _settings.sessionsUntilLongBreak == 0;
   }
@@ -1007,6 +1022,9 @@ class PomodoroBloc extends Bloc<PomodoroEvent, PomodoroState> {
 
       // Reset work sessions count to 0 (fresh start)
       _completedWorkSessions = 0;
+
+      // Reset last completed session type so the next start always begins a work session
+      _lastCompletedSessionType = null;
 
       // Emit ready state immediately
       emit(PomodoroReady(
