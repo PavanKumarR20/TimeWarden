@@ -5,9 +5,11 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -30,6 +32,17 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+
+# Firebase Configuration with sensitive keys
+lib/firebase_options.dart
+firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# Environment Variables
+.env
+.env.local
+.env.production
 
 # Symbolication related
 app.*.symbols
