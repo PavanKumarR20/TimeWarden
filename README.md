@@ -4,6 +4,20 @@
 
 ---
 
+## Screenshots
+
+| Dashboard | Habit Tracker | Pomodoro Timer |
+|:---:|:---:|:---:|
+| ![Dashboard](screenshots/dashboard.png) | ![Habits](screenshots/habits.png) | ![Pomodoro](screenshots/pomodoro.png) |
+| Overview, points & streaks | Daily habits & heatmap | Focus timer & sessions |
+
+| Secure Journal | Settings |
+|:---:|:---:|
+| ![Journal](screenshots/journal.png) | ![Settings](screenshots/settings.png) |
+| Biometric-protected entries | Profile & preferences |
+
+---
+
 ## Features
 
 ### Habit Tracker
