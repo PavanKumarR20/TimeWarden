@@ -4,6 +4,20 @@
 
 ---
 
+## Screenshots
+
+| Dashboard | Habit Tracker | Pomodoro Timer |
+|:---:|:---:|:---:|
+| <img src="screenshots/dashboard.jpeg" width="200"/> | <img src="screenshots/habits.jpeg" width="200"/> | <img src="screenshots/pomodoro.jpeg" width="200"/> |
+| Overview, points & streaks | Daily habits & heatmap | Focus timer & sessions |
+
+| Secure Journal | Settings |
+|:---:|:---:|
+| <img src="screenshots/journal.jpeg" width="200"/> | <img src="screenshots/settings.jpeg" width="200"/> |
+| Biometric-protected entries | Profile & preferences |
+
+---
+
 ## Features
 
 ### Habit Tracker
@@ -19,10 +33,9 @@
 - Persistent settings saved with Hive
 
 ### Secure Journal
-- Private journal entries with biometric authentication (fingerprint / Face ID)
-- Each entry is encrypted before storage using `crypto`
-- Rich text with mood tagging and search
-- Image attachments via camera or gallery
+- Private journal entries protected by biometric authentication (fingerprint / Face ID)
+- Each entry is encrypted client-side using `crypto` before storage
+- Mood tagging, image attachments, and full-text search
 
 ### Dashboard & Gamification
 - Unified overview of daily habits, recent journal entries, and focus stats
@@ -33,7 +46,6 @@
 ### Authentication
 - Email/password and Google Sign-In via Firebase Auth
 - Persistent sessions with automatic re-authentication
-- Secure account management
 
 ---
 
@@ -48,7 +60,7 @@
 | Alarm / Audio | `alarm` package + `audioplayers` |
 | Charts | `fl_chart` + `flutter_heatmap_calendar` |
 | Security | `local_auth` (biometrics) + `crypto` |
-| UI | Material 3, Google Fonts, `animations` package |
+| UI | Material 3, Google Fonts, `animations` |
 
 ---
 
@@ -57,12 +69,8 @@
 The project follows **Clean Architecture** with a feature-based folder structure:
 
 ```
-lib/
+timewarden/lib/
 ├── core/                     # Shared utilities, services, theme, widgets
-│   ├── constants/
-│   ├── services/             # Firebase, haptics, notifications, log
-│   ├── theme/
-│   └── widgets/
 └── features/
     ├── auth/                 # Login, register, Google Sign-In
     ├── habits/               # Habit CRUD, streaks, reminders
@@ -123,9 +131,9 @@ flutter test
 
 ---
 
-## Security Notes
+## Security
 
-- `firebase_options.dart`, `google-services.json`, and `GoogleService-Info.plist` are gitignored and must never be committed
+- `firebase_options.dart`, `google-services.json`, and `GoogleService-Info.plist` are gitignored and never committed
 - Journal entries are encrypted client-side before being written to Firestore
 - Biometric authentication gates access to the journal feature
 
