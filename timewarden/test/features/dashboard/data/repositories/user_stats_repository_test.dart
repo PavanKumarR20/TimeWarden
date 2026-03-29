@@ -47,7 +47,8 @@ void main() {
       await repository.incrementPerfectDays(testUserId, date: testDate);
 
       // Assert
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 1);
     });
 
@@ -68,7 +69,8 @@ void main() {
       await repository.incrementPerfectDays(testUserId);
 
       // Assert
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 1);
     });
 
@@ -76,10 +78,12 @@ void main() {
       // Arrange - no pre-existing doc
 
       // Act
-      await repository.incrementPerfectDays(testUserId, date: DateTime(2025, 12, 21));
+      await repository.incrementPerfectDays(testUserId,
+          date: DateTime(2025, 12, 21));
 
       // Assert
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.exists, isTrue);
       expect(doc.data()!['perfectDays'], 1);
     });
@@ -104,7 +108,8 @@ void main() {
       await repository.decrementPerfectDays(testUserId, date: testDate);
 
       // Assert
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 4);
     });
 
@@ -126,7 +131,8 @@ void main() {
       await repository.decrementPerfectDays(testUserId, date: testDate);
 
       // Assert - perfectDays should still be 0
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 0);
     });
 
@@ -134,10 +140,12 @@ void main() {
       // Arrange - no doc
 
       // Act
-      await repository.decrementPerfectDays(testUserId, date: DateTime(2025, 12, 21));
+      await repository.decrementPerfectDays(testUserId,
+          date: DateTime(2025, 12, 21));
 
       // Assert - no document created
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.exists, isFalse);
     });
   });
@@ -224,7 +232,8 @@ void main() {
       await repository.incrementPerfectDays(testUserId, date: testDate);
 
       // Assert - perfectDays incremented twice (Firestore arrayUnion prevents date duplicates)
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 2);
     });
 
@@ -248,7 +257,8 @@ void main() {
       await repository.incrementPerfectDays(testUserId, date: testDate2);
 
       // Assert - both increments processed
-      final doc = await fakeFirestore.collection('user_stats').doc(testUserId).get();
+      final doc =
+          await fakeFirestore.collection('user_stats').doc(testUserId).get();
       expect(doc.data()!['perfectDays'], 2);
     });
   });
