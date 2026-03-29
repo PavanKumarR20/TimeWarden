@@ -36,6 +36,8 @@ migrate_working_dir/
 # Firebase Configuration with sensitive keys
 lib/firebase_options.dart
 firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # Environment Variables
 .env
