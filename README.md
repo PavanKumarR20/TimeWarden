@@ -8,12 +8,12 @@
 
 | Dashboard | Habit Tracker | Pomodoro Timer |
 |:---:|:---:|:---:|
-| ![Dashboard](screenshots/dashboard.png) | ![Habits](screenshots/habits.png) | ![Pomodoro](screenshots/pomodoro.png) |
+| ![Dashboard](screenshots/dashboard.jpeg) | ![Habits](screenshots/habits.jpeg) | ![Pomodoro](screenshots/pomodoro.jpeg) |
 | Overview, points & streaks | Daily habits & heatmap | Focus timer & sessions |
 
 | Secure Journal | Settings |
 |:---:|:---:|
-| ![Journal](screenshots/journal.png) | ![Settings](screenshots/settings.png) |
+| ![Journal](screenshots/journal.jpeg) | ![Settings](screenshots/settings.jpeg) |
 | Biometric-protected entries | Profile & preferences |
 
 ---
