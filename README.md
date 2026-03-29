@@ -1,6 +1,6 @@
 # TimeWarden
 
-**Your All-in-One Productivity Hub** — habit tracking, Pomodoro focus sessions, a biometric-secured journal, and a gamified dashboard. Built with Flutter and Firebase using Clean Architecture.
+**Your All-in-One Productivity Hub** — habit tracking, Pomodoro focus sessions, a PIN-secured journal, and a gamified dashboard. Built with Flutter and Firebase using Clean Architecture.
 
 ---
 
@@ -14,7 +14,7 @@
 | Secure Journal | Settings |
 |:---:|:---:|
 | <img src="screenshots/journal.jpeg" width="200"/> | <img src="screenshots/settings.jpeg" width="200"/> |
-| Biometric-protected entries | Profile & preferences |
+| PIN-protected entries | Profile & preferences |
 
 ---
 
@@ -33,7 +33,7 @@
 - Persistent settings saved with Hive
 
 ### Secure Journal
-- Private journal entries protected by biometric authentication (fingerprint / Face ID)
+- Private journal entries protected by a PIN code
 - Each entry is encrypted client-side using `crypto` before storage
 - Mood tagging, image attachments, and full-text search
 
@@ -59,7 +59,7 @@
 | Local Storage | Hive + SharedPreferences |
 | Alarm / Audio | `alarm` package + `audioplayers` |
 | Charts | `fl_chart` + `flutter_heatmap_calendar` |
-| Security | `local_auth` (biometrics) + `crypto` |
+| Security | PIN lock + `crypto` (client-side encryption) |
 | UI | Material 3, Google Fonts, `animations` |
 
 ---
@@ -135,7 +135,7 @@ flutter test
 
 - `firebase_options.dart`, `google-services.json`, and `GoogleService-Info.plist` are gitignored and never committed
 - Journal entries are encrypted client-side before being written to Firestore
-- Biometric authentication gates access to the journal feature
+- PIN code gates access to the journal feature
 
 ---
 
