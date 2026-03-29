@@ -71,9 +71,9 @@ class AlarmService {
   }
 
   /// Check if a Pomodoro alarm is currently set
-  bool isAlarmSet() {
-    final alarm = Alarm.getAlarm(_pomodoroAlarmId);
-    return alarm != null;
+  Future<bool> isAlarmSet() async {
+    final alarms = await Alarm.getAlarms();
+    return alarms.any((a) => a.id == _pomodoroAlarmId);
   }
 
   /// Get the audio path based on session type

@@ -3,7 +3,6 @@ import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import '../../../../core/services/firebase_service.dart';
 import '../../../../core/services/log_service.dart';
 import '../../data/repositories/user_stats_repository_impl.dart';
-import '../../../habits/data/repositories/habit_repository_impl.dart';
 
 enum CalendarFilter {
   lastWeek,

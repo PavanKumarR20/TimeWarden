@@ -111,42 +111,6 @@ class _PerfectDaysManagerDialogState extends State<PerfectDaysManagerDialog> {
     );
   }
 
-  Future<void> _testCreateInitialStats() async {
-    final userId = FirebaseService().currentUserId;
-    if (userId == null) return;
-
-    setState(() {
-      _isUpdating = true;
-    });
-
-    try {
-      // Get existing stats or create new ones
-      final existingStats = await _statsRepository.getUserStats(userId);
-      final now = DateTime.now();
-
-      if (existingStats == null) {
-        // Only create if doesn't exist
-        final stats = UserStats(
-          userId: userId,
-          perfectDays: 0,
-          lastUpdated: now,
-          createdAt: now,
-        );
-        await _statsRepository.saveUserStats(stats);
-        _showSuccess('Initial stats created!');
-      } else {
-        _showError('Stats already exist! Use other buttons to modify.');
-      }
-      await _loadUserStats();
-    } catch (e) {
-      _showError('Failed to create initial stats: $e');
-    } finally {
-      setState(() {
-        _isUpdating = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
